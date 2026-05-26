@@ -1,0 +1,22 @@
+# Lightweight auditd rules for Agentic Sandbox Sentry (macOS)
+# Place in /etc/security/audit_control or use as reference for auditd
+# These rules watch for file deletion and permission changes on sensitive paths
+# Note: macOS auditd is basic; for production use fswatch instead
+
+# Watch for unlink (rm) on sensitive directories
+-a always,exit -F dir=/Users/travis/.ssh -F perm=wa -S unlink,unlinkat,rmdir -k sentry-sensitive
+-a always,exit -F dir=/Users/travis/.gnupg -F perm=wa -S unlink,unlinkat -k sentry-sensitive
+-a always,exit -F dir=/etc -F perm=wa -S unlink,unlinkat -k sentry-sensitive
+-a always,exit -F dir=/System -F perm=wa -S unlink,unlinkat -k sentry-sensitive
+-a always,exit -F dir=/Library/Keychains -F perm=wa -S unlink,unlinkat -k sentry-sensitive
+
+# Watch chmod/chown on private keys and configs
+-a always,exit -F dir=/Users/travis/.ssh -F perm=wa -S chmod,chown -k sentry-keys
+-a always,exit -F path=/Users/travis/.ssh/id_rsa -F perm=wa -S chmod,chown -k sentry-keys
+
+# Watch sudo execution
+-a always,exit -F exe=/usr/bin/sudo -S execve -k sentry-sudo
+
+# To load: sudo audit -s (reload) or restart auditd
+# View logs: sudo audit -x | grep sentry-sensitive
+# This is intentionally minimal to stay lightweight.
