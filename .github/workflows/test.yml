@@ -43,8 +43,15 @@ jobs:
           for f in *.sh; do chmod +x "$f" 2>/dev/null || true; done
           chmod +x sentryctl 2>/dev/null || true
 
-      - name: Run test suite
+      - name: Run shell test suite
         run: ./run-tests.sh --ci
+
+      - name: Verify Go TUI
+        run: |
+          go version
+          cd tui
+          go test ./...
+          go build -o /tmp/sentry-tui .
 
       - name: Upload test output (on failure)
         if: failure()

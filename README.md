@@ -1,5 +1,7 @@
 # Agentic Sandbox Sentry
 
+[![Tests](https://github.com/Hellotravisss/agentic-sandbox-sentry/actions/workflows/test.yml/badge.svg)](https://github.com/Hellotravisss/agentic-sandbox-sentry/actions/workflows/test.yml)
+
 **A lightweight, open-source macOS security tool that provides millisecond-level protection against rogue AI agents remotely controlling your Terminal.**
 
 ## What it does
