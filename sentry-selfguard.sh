@@ -215,7 +215,7 @@ compute_baseline() {
                 hash=$(sha256sum "$full_path" | awk '{print $1}')
             fi
             echo "$hash  $f" >> "$tmp"
-            ((count++))
+            ((count++)) || true
         fi
     done
 
@@ -229,7 +229,7 @@ compute_baseline() {
                 hash=$(sha256sum "$f" | awk '{print $1}')
             fi
             echo "$hash  $(basename "$f")" >> "$tmp"
-            ((count++))
+            ((count++)) || true
         fi
     done
 
@@ -294,8 +294,8 @@ verify_integrity() {
 
         if [[ ! -f "$full_path" ]]; then
             results+=("MISSING: $file_ref")
-            ((tampered++))
-            ((checked++))
+            ((tampered++)) || true
+            ((checked++)) || true
             continue
         fi
 
@@ -308,11 +308,11 @@ verify_integrity() {
 
         if [[ "$actual_hash" != "$expected_hash" ]]; then
             results+=("TAMPERED: $file_ref (expected ${expected_hash:0:12}... got ${actual_hash:0:12}...)")
-            ((tampered++))
+            ((tampered++)) || true
         else
             results+=("OK: $file_ref")
         fi
-        ((checked++))
+        ((checked++)) || true
     done < "$BASELINE_FILE"
 
     echo "Checked: $checked files"
