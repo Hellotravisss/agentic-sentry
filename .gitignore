@@ -13,3 +13,29 @@
 .idea/
 .vscode/
 *.swp
+
+# Build artifacts
+**/.build/
+**/build/
+**/.swiftpm/
+**/*.xcodeproj/
+**/*.xcworkspace/
+**/*.dSYM/
+**/*.o
+**/*.d
+**/*.dia
+
+# Go
+tui/sentry-tui
+**/*.test
+**/go.sum
+
+# Python (Dashboard)
+dashboard/__pycache__/
+dashboard/*.pyc
+dashboard/venv/
+dashboard/.env
+
+# General
+*.zip
+*.tar.gz

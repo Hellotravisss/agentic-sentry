@@ -1,0 +1,57 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install bash jq fswatch coreutils
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bash jq inotify-tools
+
+      - name: Verify environment
+        run: |
+          bash --version | head -1
+          jq --version
+          which fswatch 2>/dev/null && echo "fswatch: available" || echo "fswatch: not installed (tests will skip fswatch-dependent cases)"
+
+      - name: Make scripts executable
+        run: |
+          chmod +x run-tests.sh tests/run-tests.sh tests/lib/test-helpers.sh
+          for f in tests/test-*.sh; do chmod +x "$f"; done
+          for f in *.sh; do chmod +x "$f" 2>/dev/null || true; done
+          chmod +x sentryctl 2>/dev/null || true
+
+      - name: Run test suite
+        run: ./run-tests.sh --ci
+
+      - name: Upload test output (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-${{ matrix.os }}
+          path: |
+            /tmp/sentry-test.*
+          if-no-files-found: ignore
+          retention-days: 7

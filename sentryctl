@@ -853,10 +853,12 @@ case "${1:-dashboard}" in
         cmd_selfguard "$@"
         ;;
     tui)
-        if [[ -x "$SCRIPT_DIR/sentry-tui.sh" ]]; then
+        if [[ -x "$SCRIPT_DIR/sentry-tui" ]]; then
+            exec "$SCRIPT_DIR/sentry-tui" "$@"
+        elif [[ -x "$SCRIPT_DIR/sentry-tui.sh" ]]; then
             exec "$SCRIPT_DIR/sentry-tui.sh" "$@"
         else
-            _error "sentry-tui.sh not found or not executable"
+            _error "sentry-tui not found. Build with: cd tui && go build -o ../sentry-tui ."
             return 1
         fi
         ;;

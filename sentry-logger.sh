@@ -25,6 +25,11 @@ SENTRY_LOG_MAX_SIZE="${SENTRY_LOG_MAX_SIZE:-5242880}"  # 5 MB default
 SENTRY_LOG_MAX_FILES="${SENTRY_LOG_MAX_FILES:-5}"       # keep 5 rotated files
 SENTRY_LOG_COMPRESS="${SENTRY_LOG_COMPRESS:-true}"       # gzip rotated files
 
+# Lock settings (mkdir-based portable lock)
+SENTRY_LOCK_TIMEOUT="${SENTRY_LOCK_TIMEOUT:-5}"          # seconds to wait for lock
+SENTRY_LOCK_STALE_AGE="${SENTRY_LOCK_STALE_AGE:-30}"     # seconds before lock is considered stale
+SENTRY_LOCK_RETRY_US="${SENTRY_LOCK_RETRY_US:-100000}"   # microseconds between retries (100ms)
+
 # Hostname cached once
 _LOG_HOSTNAME="${_LOG_HOSTNAME:-$(hostname -s 2>/dev/null || hostname)}"
 
@@ -49,15 +54,16 @@ rotate_log() {
         ts=$(date +%Y%m%d-%H%M%S)
         local rotated="${logfile}.${ts}"
 
-        # Shift existing rotated files (remove oldest if over limit)
+        # List ALL existing rotated files sorted by time (newest first)
         local count=0
         local old_files=()
         while IFS= read -r f; do
+            [[ -z "$f" ]] && continue
             old_files+=("$f")
-            ((count++))
-        done < <(ls -1t "${logfile}".* 2>/dev/null | head -"$max_files")
+            ((count++)) || true
+        done < <(ls -1t "${logfile}".* 2>/dev/null || true)
 
-        # Remove oldest if we'd exceed max_files
+        # We're about to create one more rotated file, so ensure count+1 <= max_files
         if (( count >= max_files )); then
             local to_remove=$(( count - max_files + 1 ))
             for (( i=count-1; i>=count-to_remove; i-- )); do
@@ -83,6 +89,76 @@ rotate_all_logs() {
     rotate_log "$SENTRY_AUDIT_LOG"
     rotate_log "$SENTRY_ENFORCE_LOG"
     rotate_log "$SENTRY_SELFLOG"
+}
+
+# --- Portable mkdir-based lock with timeout and stale cleanup ---
+# _acquire_log_lock <lock_dir>
+#   Returns 0 on success, 1 on timeout.
+#   Writes PID file inside the lock dir for stale detection.
+#   Checks if the current lock holder is still alive; if not and the lock
+#   is older than SENTRY_LOCK_STALE_AGE, reclaims it.
+_acquire_log_lock() {
+    local lock_dir="$1"
+    local timeout="${SENTRY_LOCK_TIMEOUT:-5}"
+    local stale_age="${SENTRY_LOCK_STALE_AGE:-30}"
+    local retry_us="${SENTRY_LOCK_RETRY_US:-100000}"
+
+    # Convert retry microseconds to seconds for sleep (float)
+    local retry_sec
+    retry_sec=$(awk "BEGIN {printf \"%.1f\", $retry_us / 1000000}")
+
+    local deadline=$(( SECONDS + timeout ))
+
+    while (( SECONDS < deadline )); do
+        # Atomic mkdir — only succeeds if dir doesn't exist
+        if mkdir "$lock_dir" 2>/dev/null; then
+            # Lock acquired — write our PID for stale detection
+            echo "$$" > "$lock_dir/pid" 2>/dev/null || true
+            return 0
+        fi
+
+        # Lock exists — check if the holder is still alive
+        if [[ -f "$lock_dir/pid" ]]; then
+            local holder_pid
+            holder_pid=$(cat "$lock_dir/pid" 2>/dev/null || echo "")
+            if [[ -n "$holder_pid" ]] && ! kill -0 "$holder_pid" 2>/dev/null; then
+                # Holder process is dead — check lock age before reclaiming
+                local lock_mtime now lock_age
+                lock_mtime=$(stat -f %m "$lock_dir" 2>/dev/null || stat -c %Y "$lock_dir" 2>/dev/null || echo 0)
+                now=$(date +%s)
+                lock_age=$(( now - lock_mtime ))
+                if (( lock_age >= stale_age )); then
+                    rm -rf "$lock_dir" 2>/dev/null || true
+                    continue  # retry acquire on next iteration
+                fi
+            fi
+        else
+            # Lock dir exists but no PID file — possibly from old code or crash
+            local lock_mtime now lock_age
+            lock_mtime=$(stat -f %m "$lock_dir" 2>/dev/null || stat -c %Y "$lock_dir" 2>/dev/null || echo 0)
+            now=$(date +%s)
+            lock_age=$(( now - lock_mtime ))
+            if (( lock_age >= stale_age )); then
+                rm -rf "$lock_dir" 2>/dev/null || true
+                continue
+            fi
+        fi
+
+        # Wait before retrying
+        sleep "$retry_sec" 2>/dev/null || sleep 1 2>/dev/null || true
+    done
+
+    # Timeout — could not acquire lock
+    return 1
+}
+
+# _release_log_lock <lock_dir>
+#   Removes the lock directory and its PID file.
+_release_log_lock() {
+    local lock_dir="$1"
+    # Remove PID file first, then the dir (handles both empty and non-empty cases)
+    rm -f "$lock_dir/pid" 2>/dev/null || true
+    rmdir "$lock_dir" 2>/dev/null || rm -rf "$lock_dir" 2>/dev/null || true
 }
 
 # --- Core structured log function ---
@@ -160,11 +236,16 @@ sentry_log() {
         selfguard|tamper)    target_log="$SENTRY_SELFLOG" ;;
     esac
 
-    # Thread-safe append (flock on Linux, direct on macOS where flock is rare)
-    if command -v flock >/dev/null 2>&1; then
-        flock -x "$target_log.lock" -c "echo '$json' >> '$target_log'" 2>/dev/null || \
-            echo "$json" >> "$target_log"
+    # Thread-safe append using portable mkdir lock with timeout and stale cleanup
+    local lock_dir="${target_log}.lockdir"
+
+    if _acquire_log_lock "$lock_dir"; then
+        # Lock acquired — write under lock, then release
+        echo "$json" >> "$target_log"
+        _release_log_lock "$lock_dir"
     else
+        # Timeout: lock could not be acquired. Force-cleanup stale lock and write.
+        rm -rf "$lock_dir" 2>/dev/null || true
         echo "$json" >> "$target_log"
     fi
 
