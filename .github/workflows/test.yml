@@ -9,11 +9,7 @@ on:
 jobs:
   test:
     name: Test Suite
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -56,7 +52,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-output-ubuntu
+          name: test-output
           path: |
             /tmp/sentry-test.*
           if-no-files-found: ignore
