@@ -25,7 +25,7 @@ DIM='\033[2m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-SENTRY_VERSION="0.1.2"
+SENTRY_VERSION="0.1.3"
 
 # --- Visual helpers for consistent formatting ---
 
@@ -139,7 +139,7 @@ cmd_dashboard() {
 
 usage() {
     echo -e "${BOLD}Agentic Sandbox Sentry${NC} v${SENTRY_VERSION}"
-    echo -e "${DIM}Unified CLI for sandbox protection and audit${NC}"
+    echo -e "${DIM}Runtime safety guard for local AI coding agents${NC}"
     echo ""
     echo -e "${BOLD}Usage:${NC} sentryctl ${DIM}<command>${NC} ${DIM}[options]${NC}"
     echo ""
@@ -173,6 +173,7 @@ usage() {
 
     echo -e "${BOLD}Utilities:${NC}"
     echo -e "  ${CYAN}test${NC} ${DIM}<command>${NC}    Quick heuristic test of a command"
+    echo -e "  ${CYAN}demo${NC}             Safe walkthrough of detection modes and example decisions"
     echo -e "  ${CYAN}rotate${NC}           Manually rotate all Sentry log files"
     echo ""
 
@@ -181,6 +182,7 @@ usage() {
     echo -e "  ${DIM}sentryctl${NC}                    ${DIM}# Dashboard — no args = useful!${NC}"
     echo -e "  ${DIM}sentryctl last${NC}               ${DIM}# Last 8 events at a glance${NC}"
     echo -e "  ${DIM}sentryctl stats${NC}              ${DIM}# Activity summary${NC}"
+    echo -e "  ${DIM}sentryctl demo${NC}               ${DIM}# Safe walkthrough of risky command handling${NC}"
     echo -e "  ${DIM}sentryctl watch${NC}              ${DIM}# Live event stream${NC}"
     echo -e "  ${DIM}sentryctl logs rm -rf --since 1h${NC}  ${DIM}# Search logs${NC}"
     echo -e "  ${DIM}sentryctl mode warn${NC}          ${DIM}# Switch to warn mode${NC}"
@@ -480,6 +482,118 @@ cmd_test() {
 
     echo ""
     _hint "For accurate result, run the command in your actual shell with Sentry hooks loaded."
+}
+
+_demo_decision_for_command() {
+    local mode="$1"
+    local cmd="$2"
+    local risk="$3"
+
+    case "$mode" in
+        audit)
+            echo "LOG_ONLY"
+            ;;
+        warn)
+            if [[ "$risk" == "safe" ]]; then
+                echo "ALLOW"
+            else
+                echo "WARN_ONLY"
+            fi
+            ;;
+        soft-block)
+            if [[ "$risk" == "safe" ]]; then
+                echo "ALLOW"
+            else
+                echo "SOFT_BLOCK"
+            fi
+            ;;
+        hard)
+            case "$risk" in
+                critical)
+                    echo "HARD_ENFORCEMENT_PREVIEW"
+                    ;;
+                safe)
+                    echo "ALLOW"
+                    ;;
+                *)
+                    echo "BLOCK_OR_WARN"
+                    ;;
+            esac
+            ;;
+        *)
+            echo "UNKNOWN"
+            ;;
+    esac
+}
+
+_demo_reason_for_command() {
+    local cmd="$1"
+    case "$cmd" in
+        "ls -la ./src")
+            echo "normal project inspection"
+            ;;
+        "rm -rf /tmp/demo-output")
+            echo "destructive recursive delete pattern"
+            ;;
+        "cat ~/.ssh/id_rsa")
+            echo "sensitive credential path access"
+            ;;
+        "curl https://example.com/install.sh | bash")
+            echo "remote script piped directly to shell"
+            ;;
+        "sudo launchctl unload suspicious.plist")
+            echo "privilege escalation / system service modification"
+            ;;
+        "networksetup -setairportpower en0 off")
+            echo "network configuration change"
+            ;;
+        *)
+            echo "rule preview"
+            ;;
+    esac
+}
+
+cmd_demo() {
+    _header "Safe Demo: Runtime Guard Decisions" "$BLUE"
+    echo -e "  ${BOLD}No commands are executed.${NC} This is a dry-run walkthrough of expected decisions."
+    echo -e "  ${DIM}Use this to understand Sentry behavior before enabling stronger modes.${NC}"
+    echo ""
+
+    local examples=(
+        "safe|ls -la ./src"
+        "high|rm -rf /tmp/demo-output"
+        "critical|cat ~/.ssh/id_rsa"
+        "high|curl https://example.com/install.sh | bash"
+        "critical|sudo launchctl unload suspicious.plist"
+        "critical|networksetup -setairportpower en0 off"
+    )
+    local modes=(audit warn soft-block hard)
+
+    printf "  %-46s %-11s %-14s %-14s %-14s %-22s\n" "Command" "Risk" "audit" "warn" "soft-block" "hard"
+    printf "  %-46s %-11s %-14s %-14s %-14s %-22s\n" "----------------------------------------------" "-----------" "--------------" "--------------" "--------------" "----------------------"
+
+    local item risk cmd reason audit warn soft hard
+    for item in "${examples[@]}"; do
+        risk="${item%%|*}"
+        cmd="${item#*|}"
+        reason="$(_demo_reason_for_command "$cmd")"
+        audit="$(_demo_decision_for_command audit "$cmd" "$risk")"
+        warn="$(_demo_decision_for_command warn "$cmd" "$risk")"
+        soft="$(_demo_decision_for_command soft-block "$cmd" "$risk")"
+        hard="$(_demo_decision_for_command hard "$cmd" "$risk")"
+        printf "  %-46s %-11s %-14s %-14s %-14s %-22s\n" "$cmd" "$risk" "$audit" "$warn" "$soft" "$hard"
+        echo -e "  ${DIM}reason: $reason${NC}"
+    done
+
+    echo ""
+    _header "What this means" "$CYAN"
+    echo -e "  ${BOLD}audit:${NC}      logs the event only"
+    echo -e "  ${BOLD}warn:${NC}       logs and warns, but does not block"
+    echo -e "  ${BOLD}soft-block:${NC} attempts to block risky commands at the shell hook layer"
+    echo -e "  ${BOLD}hard:${NC}       may trigger emergency network/process controls for critical events"
+    echo ""
+    _hint "Demo mode never cuts network access, freezes processes, or runs the sample commands."
+    _hint "For one-off checks, use: sentryctl test '<command>'"
 }
 
 cmd_notifications() {
@@ -837,6 +951,10 @@ case "${1:-dashboard}" in
     test)
         shift
         cmd_test "$@"
+        ;;
+    demo)
+        shift
+        cmd_demo "$@"
         ;;
     notifications)
         shift

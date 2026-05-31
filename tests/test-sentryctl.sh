@@ -211,6 +211,14 @@ else
     _fail "test should flag sudo as dangerous"
 fi
 
+_T_CURRENT_TEST="sentryctl demo shows safe dry-run walkthrough"
+output=$("$SENTRYCTL" demo 2>&1 || true)
+if echo "$output" | grep -qi "No commands are executed" && echo "$output" | grep -qi "soft-block" && echo "$output" | grep -qi "HARD_ENFORCEMENT_PREVIEW"; then
+    _pass
+else
+    _fail "demo should show dry-run decisions across modes"
+fi
+
 test_suite_begin "sentryctl — config"
 
 _T_CURRENT_TEST="sentryctl config shows configuration"

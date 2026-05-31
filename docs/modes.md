@@ -112,12 +112,23 @@ Switch modes:
 ./sentryctl mode hard
 ```
 
+## Safe demo mode
+
+Before changing enforcement levels, preview expected behavior without running risky commands:
+
+```bash
+./sentryctl demo
+```
+
+Demo mode prints example commands, their risk level, and the expected decision in `audit`, `warn`, `soft-block`, and `hard` modes. It never cuts network access, freezes processes, or executes the sample commands.
+
 ## Recommended progression
 
-1. Start with `audit` to understand what would be flagged.
-2. Move to `warn` if the rules look reasonable.
-3. Use `soft-block` for regular day-to-day protection.
-4. Use `hard` only for controlled tests or high-risk agent workflows.
+1. Run `sentryctl demo` to understand the decision model.
+2. Start with `audit` to understand what would be flagged.
+3. Move to `warn` if the rules look reasonable.
+4. Use `soft-block` for regular day-to-day protection.
+5. Use `hard` only for controlled tests or high-risk agent workflows.
 
 ## Safety note
 

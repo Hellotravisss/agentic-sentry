@@ -2,7 +2,7 @@
 
 [![Tests](https://github.com/Hellotravisss/agentic-sandbox-sentry/actions/workflows/test.yml/badge.svg)](https://github.com/Hellotravisss/agentic-sandbox-sentry/actions/workflows/test.yml)
 
-**A lightweight, open-source macOS security tool that provides millisecond-level protection against rogue AI agents remotely controlling your Terminal.**
+**A lightweight macOS runtime safety guard for local AI coding agents — command-level monitoring, soft blocking, audit logs, and emergency network/process controls when you explicitly enable hard enforcement.**
 
 ## What it does
 
@@ -20,11 +20,12 @@ All detection and enforcement happens **locally with zero LLM involvement** in t
 
 When you allow AI agents (ChatGPT, Claude, Grok, Cursor, etc.) to run commands on your machine, you are giving them significant power. Even well-intentioned models can make catastrophic mistakes. Malicious prompts or compromised agents can cause irreversible damage.
 
-Agentic Sandbox Sentry acts as a **last line of physical defense** — it doesn't rely on the AI to behave correctly. It enforces hard boundaries at the system level.
+Agentic Sandbox Sentry acts as a **runtime safety layer and emergency brake**. It does not replace a true sandbox or VM, but it can add practical guardrails around local terminal-based AI workflows.
 
 ## Core Features
 
-- **Millisecond detection** — zsh preexec hooks + fswatch event monitoring
+- **Command-level runtime detection** — zsh preexec hooks + fswatch event monitoring
+- **Safe demo mode** — preview how risky commands would be handled without executing them
 - **Configurable physical enforcement** — hard mode can disable network + freeze processes
 - **Zero LLM dependency** in the hot path — pure local rules
 - **Self-protection** — monitors its own files and baseline integrity with meta-hash verification
@@ -74,6 +75,9 @@ After installation, you can interact with the tool in several ways:
 # Check current status
 sentryctl status
 
+# Safely preview how risky commands would be handled across modes
+sentryctl demo
+
 # View recent violations
 sentryctl violations
 
@@ -98,7 +102,7 @@ sentryctl selfguard status
 
 **Use at your own risk.**
 
-This tool performs aggressive actions including network isolation and process suspension. While designed to protect your system, it may:
+This tool is a runtime guard, not a full VM/container sandbox. In hard enforcement mode it can perform aggressive actions including network isolation and process suspension. While designed to protect your system, it may:
 
 - Interrupt legitimate workflows
 - Require manual recovery in some edge cases

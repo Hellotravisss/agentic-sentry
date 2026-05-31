@@ -2,6 +2,18 @@
 
 All notable changes to Agentic Sandbox Sentry are documented here.
 
+## v0.1.3 - 2026-05-31
+
+### Added
+
+- Added `sentryctl demo`, a safe dry-run walkthrough showing how representative risky commands would be handled across audit, warn, soft-block, and hard modes.
+- Added README and modes documentation for demo mode.
+
+### Changed
+
+- Refined project positioning from strong sandbox language to a more accurate macOS runtime safety guard / emergency brake for local AI coding agents.
+- Clarified that hard enforcement is optional and that the tool is not a full VM/container sandbox.
+
 ## v0.1.2 - 2026-05-31
 
 ### Added
