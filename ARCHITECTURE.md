@@ -47,7 +47,7 @@ No Python, no external pip packages, no kexts.
    - Load pf rules for full outbound block
    - Freeze matching PIDs (`kill -STOP`)
    - Generate + display 8-char restore code
-   - Write code to `/tmp/agentsentry-restore.code`
+   - Write code to `~/.hermes/agentsentry-restore.code` with restricted permissions
 
 5. **Restore**
    - Verify restore code (or EMERGENCY phrase)

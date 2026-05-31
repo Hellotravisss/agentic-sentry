@@ -6,7 +6,8 @@
 
 set -euo pipefail
 
-ENFORCE_LOG="${SENTRY_ENFORCE_LOG:-$HOME/.hermes/logs/enforcement.log}"
+SENTRY_HOME="${SENTRY_HOME:-$HOME/.hermes}"
+ENFORCE_LOG="${SENTRY_ENFORCE_LOG:-$SENTRY_HOME/logs/enforcement.log}"
 # Legacy fallback for older setups
 [[ ! -d "$(dirname "$ENFORCE_LOG")" ]] && ENFORCE_LOG="/tmp/sandbox-enforcement.log"
 PF_RULES="/etc/pf.anchors/agentsentry"
@@ -14,8 +15,8 @@ BACKUP_IF="/tmp/agentsentry-if.backup"
 BACKUP_WIFI="/tmp/agentsentry-wifi.backup"
 
 # Process suspension + safe restore
-SUSPENDED_PIDS_FILE="/tmp/suspended_pids.txt"
-RESTORE_CODE_FILE="/tmp/agentsentry-restore.code"
+SUSPENDED_PIDS_FILE="${SUSPENDED_PIDS_FILE:-/tmp/suspended_pids.txt}"
+RESTORE_CODE_FILE="${RESTORE_CODE_FILE:-$SENTRY_HOME/agentsentry-restore.code}"
 
 # Load unified structured logger
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -40,10 +41,18 @@ get_wifi_device() {
 
 # --- New: Process suspension & safe restore support ---
 
+ensure_private_state_dir() {
+    local dir
+    dir=$(dirname "$RESTORE_CODE_FILE")
+    mkdir -p "$dir"
+    chmod 700 "$dir" 2>/dev/null || true
+}
+
 generate_restore_code() {
     # 8-char uppercase alphanumeric code, memorable but hard to guess
     local code
     code=$(LC_ALL=C tr -dc 'A-HJ-NP-Z2-9' </dev/urandom | head -c 8 || echo "SAFENOW1")
+    ensure_private_state_dir
     echo "$code" > "$RESTORE_CODE_FILE"
     chmod 600 "$RESTORE_CODE_FILE" 2>/dev/null || true
     echo "$code"

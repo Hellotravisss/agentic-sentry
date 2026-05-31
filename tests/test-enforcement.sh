@@ -88,6 +88,16 @@ else
     _fail "expected 600, got $perms"
 fi
 
+_T_CURRENT_TEST="generate_restore_code parent directory has restricted perms"
+code=$(generate_restore_code 2>/dev/null)
+restore_dir=$(dirname "$RESTORE_CODE_FILE")
+dir_perms=$(stat -f "%Lp" "$restore_dir" 2>/dev/null || stat -c "%a" "$restore_dir" 2>/dev/null || echo "000")
+if [[ "$dir_perms" == "700" ]]; then
+    _pass
+else
+    _fail "expected parent dir 700, got $dir_perms"
+fi
+
 _T_CURRENT_TEST="restore codes are unique across calls"
 code1=$(generate_restore_code 2>/dev/null)
 code2=$(generate_restore_code 2>/dev/null)

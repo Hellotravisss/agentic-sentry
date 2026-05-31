@@ -87,6 +87,13 @@ sentryctl dashboard
 sentryctl selfguard status
 ```
 
+## Documentation
+
+- [Operating modes](docs/modes.md) — explains `audit`, `warn`, `soft-block`, and `hard` behavior.
+- [Recovery guide](docs/recovery.md) — explains how to restore network/process state after hard enforcement.
+- [Contributing guide](CONTRIBUTING.md) — explains local setup, tests, and security-sensitive PR expectations.
+- [Changelog](CHANGELOG.md) — tracks release history.
+
 ## Safety Disclaimer
 
 **Use at your own risk.**

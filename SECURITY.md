@@ -87,7 +87,7 @@ The primary goal of the system is to protect a macOS host from rogue AI agents t
    - Does not protect against in-memory tampering of a running process (only on-disk files).
 
 5. **Restore Code Location**
-   - The restore code is written to `/tmp/agentsentry-restore.code` (world-readable). Anyone on the system can read it if they have shell access before enforcement fully isolates the machine.
+   - The restore code is written to `~/.hermes/agentsentry-restore.code` by default with `600` file permissions inside a `700` user-private directory. This reduces exposure compared with shared `/tmp`, but any process running as the same user may still read it.
 
 6. **No Protection Before Loading**
    - If an attacker modifies scripts or `~/.zshrc` *before* the hooks and monitors are loaded (e.g., during initial setup or after a reboot before launchd starts), the system can be neutered.
