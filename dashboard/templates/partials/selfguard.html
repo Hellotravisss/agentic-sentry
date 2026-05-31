@@ -1,0 +1,63 @@
+<!-- Selfguard Partial -->
+<h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Self-Protection</h3>
+
+{% if sg.baseline_exists %}
+<div class="space-y-4">
+    <!-- Baseline -->
+    <div class="flex items-center justify-between">
+        <span class="text-sm text-gray-400">Baseline</span>
+        <span class="badge badge-ok">✓ present</span>
+    </div>
+
+    <div class="text-xs text-gray-500 space-y-1">
+        <p>Tracked files: <span class="text-gray-300 font-medium">{{ sg.baseline_files }}</span></p>
+        {% if sg.baseline_age %}
+        <p>Updated: <span class="text-gray-300">{{ sg.baseline_age[:19] | replace('T', ' ') }}</span></p>
+        {% endif %}
+    </div>
+
+    <!-- Meta-hash chain -->
+    <div class="border-t border-gray-800 pt-3 mt-3">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Meta-hash Chain</p>
+        <div class="space-y-1.5">
+            <div class="flex items-center gap-2">
+                {% if sg.meta_file_exists %}
+                <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                {% else %}
+                <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                {% endif %}
+                <span class="text-xs text-gray-400">Meta file</span>
+            </div>
+            <div class="flex items-center gap-2">
+                {% if sg.metahash_file_exists %}
+                <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                {% else %}
+                <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                {% endif %}
+                <span class="text-xs text-gray-400">Meta-hash file</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chain verification -->
+    <div class="border-t border-gray-800 pt-3 mt-3">
+        <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-400">Integrity</span>
+            {% if sg.chain_verified %}
+            <span class="badge badge-ok">🔒 verified</span>
+            {% else %}
+            <span class="badge badge-warn">⚠ unverified</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="text-center py-6">
+    <p class="text-2xl mb-2">🔓</p>
+    <p class="text-sm text-yellow-400">No baseline created</p>
+    <p class="text-xs text-gray-500 mt-1">Run: <code class="text-gray-400">sentryctl selfguard baseline</code></p>
+</div>
+{% endif %}
+
+<p class="text-xs text-gray-600 mt-4">auto-refresh 30s</p>

@@ -1,0 +1,36 @@
+<!-- Recent Logs Partial -->
+<div class="flex items-center justify-between mb-4">
+    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent Events</h3>
+    <span class="text-xs text-gray-600">live · auto-refresh 5s</span>
+</div>
+
+{% if not entries %}
+<div class="text-center py-6">
+    <p class="text-gray-500 text-sm">No events yet</p>
+</div>
+{% else %}
+<div class="space-y-1 font-mono text-xs">
+    {% for entry in entries %}
+    {% set decision = entry.get('decision', '') %}
+    {% set ts = entry.get('ts', '')[:19] | replace('T', ' ') %}
+    <div class="flex items-start gap-3 p-2 rounded hover:bg-gray-800/50 transition">
+        <span class="text-gray-600 whitespace-nowrap shrink-0">{{ ts }}</span>
+
+        {% if 'BLOCK' in decision or 'HARD' in decision %}
+        <span class="badge badge-fail shrink-0">{{ decision }}</span>
+        {% elif decision == 'DETECTED' %}
+        <span class="badge badge-warn shrink-0">{{ decision }}</span>
+        {% else %}
+        <span class="badge badge-info shrink-0">{{ decision or 'EVENT' }}</span>
+        {% endif %}
+
+        <div class="flex-1 min-w-0">
+            <p class="text-gray-300 truncate">{{ entry.get('reason', '') }}</p>
+            {% if entry.get('cmd') %}
+            <p class="text-gray-600 truncate">→ {{ entry.cmd[:90] }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

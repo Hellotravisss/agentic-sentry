@@ -1,0 +1,31 @@
+<!-- Health Score Partial -->
+<div class="text-center">
+    {% set score_class = 'score-healthy' if health.level == 'healthy' else ('score-degraded' if health.level == 'degraded' else 'score-critical') %}
+    {% set badge_class = 'badge-ok' if health.level == 'healthy' else ('badge-warn' if health.level == 'degraded' else 'badge-fail') %}
+
+    <div class="score-ring {{ score_class }} mx-auto mb-3">
+        {{ health.score }}
+    </div>
+
+    <span class="badge {{ badge_class }}">
+        {% if health.level == 'healthy' %}✓{% elif health.level == 'degraded' %}⚠{% else %}✗{% endif %}
+        {{ health.level | upper }}
+    </span>
+
+    {% if health.issues %}
+    <div class="mt-4 text-left">
+        <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Issues ({{ health.issues | length }})</p>
+        {% for issue in health.issues[:4] %}
+        <div class="text-xs text-yellow-400 flex items-start gap-1.5 mb-1">
+            <span class="mt-0.5">⚠</span>
+            <span>{{ issue }}</span>
+        </div>
+        {% endfor %}
+        {% if health.issues | length > 4 %}
+        <p class="text-xs text-gray-600 mt-1">+{{ health.issues | length - 4 }} more</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <p class="text-xs text-gray-600 mt-4">auto-refresh 10s</p>
+</div>

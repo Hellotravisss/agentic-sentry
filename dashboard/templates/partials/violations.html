@@ -1,0 +1,90 @@
+<!-- Violations Partial -->
+<h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Violations</h3>
+
+{% if summary.total == 0 %}
+<div class="text-center py-8">
+    <p class="text-3xl mb-2">🛡️</p>
+    <p class="text-gray-400">No events recorded yet</p>
+    <p class="text-xs text-gray-600 mt-1">Events will appear here when commands are audited</p>
+</div>
+{% else %}
+
+<!-- Stats Row -->
+<div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="text-center">
+        <p class="stat-number text-blue-400">{{ summary.total }}</p>
+        <p class="text-xs text-gray-500 mt-1">Total Events</p>
+    </div>
+    <div class="text-center">
+        <p class="stat-number text-red-400">{{ summary.blocked }}</p>
+        <p class="text-xs text-gray-500 mt-1">Blocked</p>
+    </div>
+    <div class="text-center">
+        <p class="stat-number text-yellow-400">{{ summary.detected }}</p>
+        <p class="text-xs text-gray-500 mt-1">Detected</p>
+    </div>
+    <div class="text-center">
+        <p class="stat-number text-red-500">{{ summary.hard_enforcement }}</p>
+        <p class="text-xs text-gray-500 mt-1">Hard Enforce</p>
+    </div>
+</div>
+
+<!-- Severity -->
+<div class="flex gap-2 mb-6">
+    <span class="badge badge-fail">Critical: {{ summary.critical }}</span>
+    <span class="badge badge-warn">Warning: {{ summary.warning }}</span>
+    <span class="badge badge-info">Info: {{ summary.info }}</span>
+</div>
+
+<!-- Top Reasons -->
+{% if summary.top_reasons %}
+<div class="mb-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Top Reasons</p>
+    {% set max_count = summary.top_reasons[0].count if summary.top_reasons else 1 %}
+    {% for item in summary.top_reasons[:5] %}
+    <div class="flex items-center gap-3 mb-2">
+        <span class="text-xs text-gray-400 w-8 text-right">{{ item.count }}</span>
+        <div class="flex-1">
+            <div class="reason-bar" style="width: {{ (item.count / max_count * 100) | int }}%; min-width: 8px;"></div>
+        </div>
+        <span class="text-xs text-gray-300 flex-1 truncate">{{ item.reason }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Recent Events -->
+{% if recent %}
+<div class="mt-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Last {{ recent | length }} Events</p>
+    <div class="space-y-1 max-h-64 overflow-y-auto">
+        {% for event in recent | reverse %}
+        {% set decision = event.get('decision', '') %}
+        {% set row_class = 'event-blocked' if 'BLOCK' in decision or 'HARD' in decision else ('event-detected' if decision == 'DETECTED' else 'event-info') %}
+        <div class="event-row {{ row_class }} rounded-r-md">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    {% if 'BLOCK' in decision or 'HARD' in decision %}
+                    <span class="text-red-400 text-xs">⛔</span>
+                    {% elif decision == 'DETECTED' %}
+                    <span class="text-yellow-400 text-xs">⚠️</span>
+                    {% else %}
+                    <span class="text-green-400 text-xs">ℹ️</span>
+                    {% endif %}
+                    <span class="text-xs font-mono text-gray-300">{{ decision }}</span>
+                </div>
+                <span class="text-xs text-gray-600">{{ event.get('ts', '')[:19] | replace('T', ' ') }}</span>
+            </div>
+            <p class="text-xs text-gray-400 mt-0.5 truncate">{{ event.get('reason', '') }}</p>
+            {% if event.get('cmd') %}
+            <p class="text-xs text-gray-600 font-mono mt-0.5 truncate">cmd: {{ event.cmd[:80] }}</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+
+<p class="text-xs text-gray-600 mt-4">auto-refresh 15s</p>

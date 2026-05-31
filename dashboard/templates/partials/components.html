@@ -1,0 +1,98 @@
+<!-- Components Status Partial -->
+<h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Components</h3>
+
+<div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+    <!-- fswatch monitor -->
+    <div class="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50">
+        {% if components.fswatch_monitor.running %}
+        <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-lg shadow-green-500/30"></span>
+        {% else %}
+        <span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
+        {% endif %}
+        <div>
+            <p class="text-sm font-medium">fswatch monitor</p>
+            <p class="text-xs text-gray-500">
+                {% if components.fswatch_monitor.running %}PID {{ components.fswatch_monitor.pid }}
+                {% else %}not running{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- selfguard -->
+    <div class="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50">
+        {% if components.selfguard.running %}
+        <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-lg shadow-green-500/30"></span>
+        {% else %}
+        <span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
+        {% endif %}
+        <div>
+            <p class="text-sm font-medium">Selfguard</p>
+            <p class="text-xs text-gray-500">
+                {% if components.selfguard.running %}PID {{ components.selfguard.pid }}
+                {% else %}not running{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- egress watcher -->
+    <div class="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50">
+        {% if components.egress_watcher.running %}
+        <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-lg shadow-green-500/30"></span>
+        {% else %}
+        <span class="w-2.5 h-2.5 rounded-full bg-gray-500"></span>
+        {% endif %}
+        <div>
+            <p class="text-sm font-medium">Egress watcher</p>
+            <p class="text-xs text-gray-500">
+                {% if components.egress_watcher.running %}running{% else %}not running{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- launchd -->
+    <div class="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50">
+        {% if components.launchd.loaded %}
+        <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-lg shadow-green-500/30"></span>
+        {% else %}
+        <span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
+        {% endif %}
+        <div>
+            <p class="text-sm font-medium">launchd agent</p>
+            <p class="text-xs text-gray-500">
+                {% if components.launchd.loaded %}loaded{% else %}not loaded{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- fswatch binary -->
+    <div class="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50">
+        {% if components.fswatch_binary.installed %}
+        <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-lg shadow-green-500/30"></span>
+        {% else %}
+        <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+        {% endif %}
+        <div>
+            <p class="text-sm font-medium">fswatch binary</p>
+            <p class="text-xs text-gray-500">
+                {% if components.fswatch_binary.installed %}installed{% else %}NOT INSTALLED{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- jq -->
+    <div class="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50">
+        {% if components.jq.installed %}
+        <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-lg shadow-green-500/30"></span>
+        {% else %}
+        <span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
+        {% endif %}
+        <div>
+            <p class="text-sm font-medium">jq</p>
+            <p class="text-xs text-gray-500">
+                {% if components.jq.installed %}installed{% else %}not installed{% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+
+<p class="text-xs text-gray-600 mt-4">auto-refresh 10s</p>
