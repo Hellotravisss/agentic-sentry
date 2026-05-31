@@ -1,0 +1,763 @@
+#!/bin/bash
+# sentryctl - Unified command line interface for Agentic Sandbox Sentry (Route C)
+# This is the main user-facing tool.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Load configuration helpers
+if [[ -f "$SCRIPT_DIR/sentry-config.sh" ]]; then
+    source "$SCRIPT_DIR/sentry-config.sh"
+    load_sentry_config 2>/dev/null || true
+else
+    echo "Warning: sentry-config.sh not found. Some features may be limited."
+fi
+
+# Colors for better UX
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+cmd_dashboard() {
+    load_sentry_config 2>/dev/null || true
+    local current_mode="${SENTRY_MODE:-soft-block}"
+
+    echo -e "${BLUE}=== Agentic Sandbox Sentry ===${NC}"
+    echo -e "Mode: ${YELLOW}${current_mode}${NC}     (use 'sentryctl mode' to change)"
+    echo ""
+
+    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
+
+    if [[ -f "$log_file" && -s "$log_file" ]]; then
+        local total blocked
+        total=$(wc -l < "$log_file" | tr -d ' ')
+        blocked=$(grep -cE 'SOFT_BLOCKED|HARD_ENFORCEMENT' "$log_file" 2>/dev/null) || blocked=0
+
+        echo "Total events: $total    |    Blocked attempts: $blocked"
+        echo ""
+        echo -e "${BLUE}Last 5 events:${NC}"
+        tail -5 "$log_file" | while read -r line; do
+            if command -v jq >/dev/null 2>&1; then
+                local ts decision reason
+                ts=$(echo "$line" | jq -r '.ts // ""' | cut -d'T' -f2 | cut -d'+' -f1)
+                decision=$(echo "$line" | jq -r '.decision // ""')
+                reason=$(echo "$line" | jq -r '.reason // ""' | cut -c1-65)
+
+                local color="$GREEN"
+                [[ "$decision" == *"BLOCK"* || "$decision" == *"HARD"* ]] && color="$RED"
+                [[ "$decision" == "DETECTED" ]] && color="$YELLOW"
+
+                printf "  ${color}[%s] %s - %s${NC}\n" "$ts" "$decision" "$reason"
+            else
+                echo "  $line"
+            fi
+        done
+    else
+        echo "No events recorded yet."
+    fi
+
+    echo ""
+    echo "Popular commands:  last | stats | watch | logs --follow | mode"
+}
+
+usage() {
+    echo "Agentic Sandbox Sentry Control"
+    echo ""
+    echo "Usage: sentryctl <command> [options]"
+    echo ""
+    echo "Commands:"
+    echo "  status              Show current status and configuration"
+    echo "  health              Component health check (exit code = health score)"
+    echo "  violations          Detailed violation report (reasons, commands, severity)"
+    echo "  mode [name]         Show or switch protection mode (audit|warn|soft-block|hard)"
+    echo "  logs [search] [--tail N] [--follow] [--json] [--blocked] [--since 1h]"
+    echo "                      Powerful log viewer (search, filter, follow)"
+    echo "  last                Show the 8 most recent events (very useful)"
+    echo "  stats / summary     Activity statistics and top reasons"
+    echo "  explain [N]         Show full details of the Nth most recent event"
+    echo "  watch               Live updating dashboard (great for monitoring AI)"
+    echo "  selfguard           Self-protection status and integrity check"
+    echo "  config              Show full effective configuration"
+    echo "  allow-dir <path>    Add a directory to allowed project dirs"
+    echo "  test <command>      Quick heuristic test of a command"
+    echo "  notifications [on|off]  Enable/disable macOS notifications"
+    echo ""
+    echo "Examples:"
+    echo "  sentryctl                           # Nice dashboard (no args = useful!)"
+    echo "  sentryctl last"
+    echo "  sentryctl stats"
+    echo "  sentryctl watch"
+    echo "  sentryctl export --format csv -o audit.csv"
+    echo "  sentryctl logs rm -rf --since 1h"
+    echo "  sentryctl mode warn"
+}
+
+cmd_status() {
+    echo -e "${BLUE}=== Agentic Sandbox Sentry Status ===${NC}"
+    echo "Date: $(date)"
+    echo ""
+
+    # Config
+    if command -v print_sentry_config >/dev/null 2>&1; then
+        print_sentry_config
+    else
+        echo "Mode: ${SENTRY_MODE:-unknown}"
+    fi
+
+    echo ""
+    echo -e "${BLUE}1. Shell hooks:${NC}"
+    if [[ -n "${ZSH_VERSION:-}" ]]; then
+        echo "  Running in zsh"
+    else
+        echo "  (Run 'source sandbox-hooks.zsh' in your shell to activate)"
+    fi
+
+    echo ""
+    echo -e "${BLUE}2. Background monitor (fswatch):${NC}"
+    if pgrep -f "sandbox-monitor.fswatch.sh" >/dev/null 2>&1; then
+        echo -e "  ${GREEN}Running${NC}"
+    else
+        echo -e "  ${YELLOW}Not running${NC} (recommended: launchctl or nohup)"
+    fi
+
+    echo ""
+    echo -e "${BLUE}3. Recent activity (last 5 events):${NC}"
+    if [[ -f "${AUDIT_LOG:-/tmp/sandbox-audit.log}" ]]; then
+        # Reuse logs command logic for pretty recent summary
+        tail -5 "${AUDIT_LOG:-/tmp/sandbox-audit.log}" | while read -r line; do
+            if command -v jq >/dev/null 2>&1; then
+                local decision reason ts
+                decision=$(echo "$line" | jq -r '.decision // ""')
+                reason=$(echo "$line" | jq -r '.reason // ""' | cut -c1-70)
+                ts=$(echo "$line" | jq -r '.ts // ""' | cut -d'T' -f2 | cut -d'+' -f1)
+
+                local color="$GREEN"
+                [[ "$decision" == *"BLOCK"* || "$decision" == "HARD_ENFORCEMENT" ]] && color="$RED"
+                [[ "$decision" == "DETECTED" ]] && color="$YELLOW"
+
+                printf "  ${color}[%s] %s - %s${NC}\n" "$ts" "$decision" "$reason"
+            else
+                echo "  $line"
+            fi
+        done
+    else
+        echo "  No audit log yet"
+    fi
+
+    echo ""
+    echo "Use 'sentryctl logs' for full history, or 'sentryctl logs --follow' for live view."
+}
+
+cmd_mode() {
+    local new_mode="${1:-}"
+
+    if [[ -z "$new_mode" ]]; then
+        load_sentry_config
+        echo "Current mode: $SENTRY_MODE"
+        echo ""
+        echo "Available modes:"
+        echo "  audit        - Only log and notify (maximum compatibility)"
+        echo "  warn         - Log + big warning, command still runs"
+        echo "  soft-block   - Try to block dangerous commands (recommended default)"
+        echo "  hard         - Full physical enforcement (network cut + freeze) — use with caution"
+        return 0
+    fi
+
+    if set_sentry_mode "$new_mode"; then
+        echo ""
+        echo -e "${GREEN}✓ Mode changed to '$new_mode'${NC}"
+        echo "  You may need to reload your shell (source ~/.zshrc) for hooks to pick up the change."
+    fi
+}
+
+cmd_logs() {
+    local tail_count=30
+    local follow=false
+    local json_output=false
+    local decision_filter=""
+    local mode_filter=""
+    local search_term=""
+    local since=""
+
+    # Parse options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --tail|-n)
+                tail_count="$2"; shift 2 ;;
+            --follow|-f)
+                follow=true; shift ;;
+            --json)
+                json_output=true; shift ;;
+            --decision)
+                decision_filter="$2"; shift 2 ;;
+            --mode)
+                mode_filter="$2"; shift 2 ;;
+            --since)
+                since="$2"; shift 2 ;;
+            --search|--grep)
+                search_term="$2"; shift 2 ;;
+            --blocked|--dangerous)
+                decision_filter="BLOCKED|SOFT_BLOCKED|HARD"; shift ;;
+            *)
+                # Treat unknown as search term
+                if [[ -z "$search_term" ]]; then
+                    search_term="$1"
+                fi
+                shift ;;
+        esac
+    done
+
+    # Strong preference for the new persistent location (Route C)
+    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    if [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]]; then
+        log_file="/tmp/sandbox-audit.log"
+    fi
+
+    if [[ ! -f "$log_file" ]]; then
+        echo "No audit log found yet."
+        echo "Logs will appear here after you use the hooks: $HOME/.hermes/logs/sandbox-audit.log"
+        return 0
+    fi
+
+    # Build filter pipeline
+    local filter_cmd="cat"
+    if [[ -n "$search_term" ]]; then
+        filter_cmd="grep -i \"$search_term\""
+    fi
+    if [[ -n "$decision_filter" ]]; then
+        filter_cmd="$filter_cmd | grep -E '\"decision\"[^,]*($decision_filter)'"
+    fi
+    if [[ -n "$mode_filter" ]]; then
+        filter_cmd="$filter_cmd | grep -i '\"mode\"[^,]*$mode_filter'"
+    fi
+
+    local tail_cmd="tail -n $tail_count"
+    if $follow; then
+        tail_cmd="tail -n 0 -f"
+    fi
+
+    # Time filter (simple implementation)
+    if [[ -n "$since" ]]; then
+        local since_epoch
+        case "$since" in
+            *h|*H) since_epoch=$(date -v -${since%?}H +%s 2>/dev/null || date -d "$since ago" +%s 2>/dev/null || echo 0) ;;
+            *m|*M) since_epoch=$(date -v -${since%?}M +%s 2>/dev/null || date -d "$since ago" +%s 2>/dev/null || echo 0) ;;
+            today|Today) since_epoch=$(date -v 0H +%s 2>/dev/null || date -d 'today 00:00' +%s 2>/dev/null || echo 0) ;;
+            *) since_epoch=0 ;;
+        esac
+        if [[ "$since_epoch" != "0" ]]; then
+            filter_cmd="$filter_cmd | while read -r l; do ts=\$(echo \"\$l\" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]+'); ts_epoch=\$(date -j -f '%Y-%m-%dT%H:%M:%S' \"\${ts%:*}\" +%s 2>/dev/null || echo 0); [[ \$ts_epoch -ge $since_epoch ]] && echo \"\$l\"; done"
+        fi
+    fi
+
+    if $json_output; then
+        eval "$tail_cmd \"$log_file\" | $filter_cmd"
+        return
+    fi
+
+    echo -e "${BLUE}=== Sentry Logs${NC}  (file: $log_file)"
+    if [[ -n "$search_term$decision_filter$mode_filter$since" ]]; then
+        echo -e "Filters: search='${search_term}' decision='${decision_filter}' mode='${mode_filter}' since='${since}'"
+    fi
+    echo ""
+
+    # Main pipeline
+    eval "$tail_cmd \"$log_file\" | $filter_cmd" | while read -r line; do
+        if command -v jq >/dev/null 2>&1; then
+            local ts mode decision reason cmd_str cwd
+            ts=$(echo "$line" | jq -r '.ts // ""' 2>/dev/null | cut -d'T' -f2 | cut -d'+' -f1)
+            mode=$(echo "$line" | jq -r '.mode // "unknown"')
+            decision=$(echo "$line" | jq -r '.decision // ""')
+            reason=$(echo "$line" | jq -r '.reason // ""')
+            cmd_str=$(echo "$line" | jq -r '.cmd // ""' | cut -c1-90)
+            cwd=$(echo "$line" | jq -r '.cwd // ""' | sed "s|$HOME|~|g" | cut -c1-60)
+
+            local color="$NC" icon="•"
+            case "$decision" in
+                *BLOCKED*|HARD_ENFORCEMENT) color="$RED"; icon="🛑" ;;
+                SOFT_BLOCKED) color="$RED"; icon="⛔" ;;
+                DETECTED) color="$YELLOW"; icon="⚠️ " ;;
+                *) color="$GREEN"; icon="ℹ️ " ;;
+            esac
+
+            printf "${color}%s [%s] %s %s${NC}\n" "$ts" "$mode" "$icon" "$decision"
+            printf "   %s\n" "$reason"
+            printf "   cmd: %s\n" "$cmd_str"
+            [[ -n "$cwd" ]] && printf "   cwd: %s\n" "$cwd"
+            echo ""
+        else
+            echo "$line"
+        fi
+    done
+}
+
+cmd_config() {
+    if command -v print_sentry_config >/dev/null 2>&1; then
+        print_sentry_config
+    else
+        echo "Config loader not available"
+    fi
+
+    echo ""
+    echo "Config file location: ${SENTRY_CONFIG:-$HOME/.hermes/sentry-config.json}"
+}
+
+cmd_allow_dir() {
+    local new_dir="$1"
+
+    if [[ -z "$new_dir" ]]; then
+        echo "Usage: sentryctl allow-dir <absolute-or-relative-path>"
+        return 1
+    fi
+
+    # Expand to absolute path
+    new_dir=$(cd "$new_dir" 2>/dev/null && pwd || echo "$new_dir")
+
+    local rules_file="${SAFETY_RULES:-$HOME/.hermes/safety-rules.json}"
+
+    if [[ ! -f "$rules_file" ]]; then
+        echo "Safety rules file not found: $rules_file"
+        return 1
+    fi
+
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "jq is required to modify rules. Please install jq."
+        return 1
+    fi
+
+    # Add the directory if not already present
+    local tmp
+    tmp=$(mktemp)
+
+    if jq --arg dir "$new_dir" '
+        .allowed_project_dirs = (
+            (.allowed_project_dirs // []) + [$dir] | unique
+        )
+    ' "$rules_file" > "$tmp"; then
+        mv "$tmp" "$rules_file"
+        echo -e "${GREEN}✓ Added to allowed directories:${NC} $new_dir"
+        echo "  You may need to reload your shell for the change to take effect."
+    else
+        rm -f "$tmp"
+        echo "Failed to update rules file."
+        return 1
+    fi
+}
+
+cmd_last() {
+    # Convenience alias for recent interesting events
+    cmd_logs --tail 8 "$@"
+}
+
+cmd_test() {
+    local test_cmd="$*"
+
+    if [[ -z "$test_cmd" ]]; then
+        echo "Usage: sentryctl test <command string>"
+        echo "Example: sentryctl test 'rm -rf /tmp/important'"
+        return 1
+    fi
+
+    echo "Testing command: $test_cmd"
+    echo ""
+
+    # Source the hooks logic if possible (best effort)
+    if [[ -f "$SCRIPT_DIR/sandbox-hooks.zsh" ]]; then
+        # We can't easily call zsh functions from bash, so we do a simple heuristic here
+        echo "(Heuristic test — full evaluation happens inside zsh)"
+        echo ""
+
+        if [[ "$test_cmd" =~ (rm[[:space:]]+-rf?|sudo[[:space:]]|curl.*\|.*(bash|sh)) ]]; then
+            echo -e "${RED}Would likely be considered DANGEROUS${NC}"
+        else
+            echo -e "${GREEN}Would likely be considered safe${NC}"
+        fi
+    else
+        echo "Cannot load full rule engine for test."
+    fi
+
+    echo ""
+    echo "For accurate result, run the command in your actual shell with Sentry hooks loaded."
+}
+
+cmd_notifications() {
+    local action="${1:-}"
+
+    ensure_sentry_config
+
+    case "$action" in
+        on|true|enable)
+            if command -v jq >/dev/null 2>&1; then
+                jq '.notifications = true' "$SENTRY_CONFIG" > /tmp/sentrycfg.$$ && mv /tmp/sentrycfg.$$ "$SENTRY_CONFIG"
+            fi
+            echo "Notifications enabled"
+            ;;
+        off|false|disable)
+            if command -v jq >/dev/null 2>&1; then
+                jq '.notifications = false' "$SENTRY_CONFIG" > /tmp/sentrycfg.$$ && mv /tmp/sentrycfg.$$ "$SENTRY_CONFIG"
+            fi
+            echo "Notifications disabled"
+            ;;
+        *)
+            load_sentry_config
+            echo "Notifications are currently: $SENTRY_NOTIFICATIONS"
+            echo "Usage: sentryctl notifications [on|off]"
+            ;;
+    esac
+}
+
+# === New powerful commands for excellent audit experience ===
+
+cmd_stats() {
+    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
+
+    if [[ ! -f "$log_file" ]]; then
+        echo "No audit log found."
+        return 0
+    fi
+
+    echo -e "${BLUE}=== Sentry Activity Summary ===${NC}"
+    echo ""
+
+    local total
+    total=$(wc -l < "$log_file" 2>/dev/null | tr -d ' ' || echo 0)
+
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "jq recommended for rich stats (brew install jq)"
+        echo "Total events: $total"
+        return
+    fi
+
+    local soft_blocked hard detected
+    soft_blocked=$(grep -c 'SOFT_BLOCKED' "$log_file" 2>/dev/null) || soft_blocked=0
+    hard=$(grep -c 'HARD_ENFORCEMENT' "$log_file" 2>/dev/null) || hard=0
+    detected=$(grep -c '"decision":"DETECTED"' "$log_file" 2>/dev/null) || detected=0
+
+    echo "Total events logged:     $total"
+    echo ""
+    echo "Soft blocks (prevented): $soft_blocked"
+    echo "Hard enforcement runs:   $hard"
+    echo "Just detected (allowed): $detected"
+    echo ""
+
+    echo -e "${BLUE}Top reasons:${NC}"
+    jq -r '.reason // empty' "$log_file" 2>/dev/null |
+        sort | uniq -c | sort -rn | head -6 | while read -r count reason; do
+            printf "  %4s  %s\n" "$count" "$reason"
+        done 2>/dev/null || echo "  (no data yet)"
+
+    echo ""
+    echo -e "${BLUE}Events by mode:${NC}"
+    jq -r '.mode // "unknown"' "$log_file" 2>/dev/null |
+        sort | uniq -c | sort -rn | while read -r count mode; do
+            printf "  %4s  %s\n" "$count" "$mode"
+        done 2>/dev/null || echo "  (no data yet)"
+}
+
+cmd_explain() {
+    local index="${1:-1}"   # default to the most recent
+    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
+
+    if [[ ! -f "$log_file" ]]; then
+        echo "No audit log found."
+        return 1
+    fi
+
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "jq is strongly recommended for explain. Falling back to raw line."
+        tail -n "$index" "$log_file" | tail -1
+        return
+    fi
+
+    local line
+    line=$(tail -n "$index" "$log_file" | tail -1)
+
+    if [[ -z "$line" ]]; then
+        echo "No event found at position $index"
+        return 1
+    fi
+
+    echo -e "${BLUE}=== Sentry Event Detail ===${NC}"
+    echo "$line" | jq -C .
+
+    echo ""
+    echo -e "${YELLOW}Quick actions:${NC}"
+    echo "  • To see surrounding context:  sentryctl logs --tail 20 | grep -i 'your search'"
+    echo "  • To watch live:               sentryctl watch"
+}
+
+cmd_watch() {
+    echo -e "${BLUE}=== Sentry Live Watch (Ctrl-C to exit) ===${NC}"
+    echo "Press Ctrl-C to stop."
+    echo ""
+
+    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
+
+    if [[ ! -f "$log_file" ]]; then
+        echo "Waiting for log file to appear..."
+        while [[ ! -f "$log_file" ]]; do sleep 1; done
+    fi
+
+    tail -n 5 -f "$log_file" | while read -r line; do
+        if command -v jq >/dev/null 2>&1; then
+            local decision reason ts
+            decision=$(echo "$line" | jq -r '.decision // ""')
+            reason=$(echo "$line" | jq -r '.reason // ""' | cut -c1-60)
+            ts=$(echo "$line" | jq -r '.ts // ""' | cut -d'T' -f2 | cut -d'+' -f1)
+
+            local color="$GREEN"
+            [[ "$decision" == *"BLOCK"* || "$decision" == *"HARD"* ]] && color="$RED"
+            [[ "$decision" == "DETECTED" ]] && color="$YELLOW"
+
+            printf "\r${color}[%s] %s - %s${NC}\033[K\n" "$ts" "$decision" "$reason"
+        else
+            echo "$line"
+        fi
+    done
+}
+
+# === New: Export for audits ===
+cmd_export() {
+    local format="json"
+    local since=""
+    local outfile=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --format) format="$2"; shift 2 ;;
+            --since)  since="$2"; shift 2 ;;
+            -o|--output) outfile="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
+    load_sentry_config 2>/dev/null || true
+    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
+
+    if [[ ! -f "$log_file" ]]; then
+        echo "No log file to export."
+        return 1
+    fi
+
+    local filter="cat"
+    if [[ -n "$since" ]]; then
+        # simple since filter (reuse some logic)
+        filter="grep -E '20[0-9]{2}-[0-9]{2}-[0-9]{2}'"  # rough
+    fi
+
+    if [[ -z "$outfile" ]]; then
+        outfile="sentry-export-$(date +%Y%m%d-%H%M%S).${format}"
+    fi
+
+    case "$format" in
+        json)
+            eval "$filter \"$log_file\"" > "$outfile"
+            ;;
+        csv)
+            echo "timestamp,mode,decision,reason,command,cwd" > "$outfile"
+            if command -v jq >/dev/null 2>&1; then
+                jq -r '[.ts, .mode, .decision, .reason, .cmd, .cwd] | @csv' "$log_file" >> "$outfile" 2>/dev/null || true
+            else
+                echo "CSV export works best with jq installed."
+            fi
+            ;;
+        *)
+            echo "Supported formats: json, csv"
+            return 1
+            ;;
+    esac
+
+    echo "Exported to: $outfile"
+}
+
+# Improved live dashboard
+cmd_watch() {
+    clear
+    echo -e "${BLUE}=== Sentry Live Dashboard ===${NC}   (Ctrl-C to exit)"
+    echo ""
+
+    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
+
+    # Show initial stats
+    if [[ -f "$log_file" ]]; then
+        echo -e "${BLUE}Current stats (last 30s refresh)${NC}"
+        tail -50 "$log_file" | grep -E 'SOFT_BLOCKED|HARD' | wc -l | xargs -I {} echo "Recent blocks: {}"
+    fi
+
+    echo ""
+    echo -e "${YELLOW}Live events:${NC}"
+
+    tail -n 3 -f "$log_file" 2>/dev/null | while read -r line; do
+        if command -v jq >/dev/null 2>&1; then
+            local decision reason ts mode
+            decision=$(echo "$line" | jq -r '.decision // ""')
+            reason=$(echo "$line" | jq -r '.reason // ""' | cut -c1-55)
+            ts=$(echo "$line" | jq -r '.ts // ""' | cut -d'T' -f2 | cut -d'+' -f1)
+            mode=$(echo "$line" | jq -r '.mode // ""')
+
+            local color="$GREEN"
+            [[ "$decision" == *"BLOCK"* || "$decision" == *"HARD"* ]] && color="$RED"
+            [[ "$decision" == "DETECTED" ]] && color="$YELLOW"
+
+            printf "${color}[%s] %s | %s | %s${NC}\n" "$ts" "$mode" "$decision" "$reason"
+        else
+            echo "$line"
+        fi
+    done
+}
+
+# === Health check command ===
+cmd_health() {
+    if [[ -x "$SCRIPT_DIR/sentry-status.sh" ]]; then
+        "$SCRIPT_DIR/sentry-status.sh" --health
+    else
+        echo "sentry-status.sh not found or not executable"
+        return 1
+    fi
+}
+
+# === Violations command ===
+cmd_violations() {
+    if [[ -x "$SCRIPT_DIR/sentry-status.sh" ]]; then
+        "$SCRIPT_DIR/sentry-status.sh" --violations
+    else
+        echo "sentry-status.sh not found or not executable"
+        return 1
+    fi
+}
+
+# === Selfguard command ===
+cmd_selfguard() {
+    local subcmd="${1:-status}"
+
+    if [[ ! -x "$SCRIPT_DIR/sentry-selfguard.sh" ]]; then
+        echo "sentry-selfguard.sh not found or not executable"
+        return 1
+    fi
+
+    case "$subcmd" in
+        status)
+            "$SCRIPT_DIR/sentry-selfguard.sh" status
+            ;;
+        baseline|hash)
+            "$SCRIPT_DIR/sentry-selfguard.sh" baseline
+            ;;
+        verify|check)
+            "$SCRIPT_DIR/sentry-selfguard.sh" verify
+            ;;
+        start|monitor)
+            echo "Starting selfguard monitor... (use Ctrl-C to stop)"
+            "$SCRIPT_DIR/sentry-selfguard.sh" start
+            ;;
+        *)
+            echo "Usage: sentryctl selfguard [status|baseline|verify|start]"
+            echo ""
+            echo "  status   - Show selfguard health and recent events"
+            echo "  baseline - Compute SHA-256 checksums of protected files"
+            echo "  verify   - One-shot integrity check against baseline"
+            echo "  start    - Launch fswatch self-protection monitor"
+            ;;
+    esac
+}
+
+# === Log rotation command ===
+cmd_rotate() {
+    if [[ -f "$SCRIPT_DIR/sentry-logger.sh" ]]; then
+        source "$SCRIPT_DIR/sentry-logger.sh"
+        echo "Rotating all Sentry log files..."
+        rotate_all_logs
+        echo "Done."
+        echo ""
+        echo "Current log stats:"
+        get_log_stats "$SENTRY_AUDIT_LOG" | (command -v jq >/dev/null 2>&1 && jq . || cat)
+    else
+        echo "sentry-logger.sh not found"
+        return 1
+    fi
+}
+
+# Main command router
+case "${1:-dashboard}" in
+    dashboard|"")
+        cmd_dashboard
+        ;;
+    status)
+        cmd_status
+        ;;
+    mode)
+        shift
+        cmd_mode "$@"
+        ;;
+    logs)
+        shift
+        cmd_logs "$@"
+        ;;
+    last)
+        shift
+        cmd_last "$@"
+        ;;
+    stats|summary)
+        cmd_stats
+        ;;
+    explain)
+        shift
+        cmd_explain "$@"
+        ;;
+    watch)
+        cmd_watch
+        ;;
+    export)
+        shift
+        cmd_export "$@"
+        ;;
+    config)
+        cmd_config
+        ;;
+    allow-dir|allow_dir)
+        shift
+        cmd_allow_dir "$@"
+        ;;
+    test)
+        shift
+        cmd_test "$@"
+        ;;
+    notifications)
+        shift
+        cmd_notifications "$@"
+        ;;
+    health)
+        cmd_health
+        ;;
+    violations|violation)
+        cmd_violations
+        ;;
+    selfguard|self-guard|integrity)
+        shift
+        cmd_selfguard "$@"
+        ;;
+    rotate|log-rotate)
+        cmd_rotate
+        ;;
+    tail)
+        shift
+        cmd_logs --follow "$@"
+        ;;
+    help|--help|-h)
+        usage
+        ;;
+    *)
+        echo "Unknown command: $1"
+        echo ""
+        usage
+        exit 1
+        ;;
+esac

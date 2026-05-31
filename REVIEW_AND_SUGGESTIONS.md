@@ -70,25 +70,45 @@ These additions keep the system <100 LOC total, rely on macOS builtins + fswatch
 COMPLETION STATUS (May 27, 2026)
 =====================================
 
-All bugs fixed:
-1. ✅ Path spaces: Robust parse_fswatch_line using regex strip + improved awk in hooks
+All bugs fixed (original review):
+1. ✅ Path spaces: Robust parse_fswatch_line + improved awk in hooks
 2. ✅ Reason capture: Changed to reason=$(is_dangerous ...) in preexec
-3. ✅ Hardcoded paths: Dynamic $SCRIPT_DIR, install.sh generates plist with real paths, env vars everywhere
+3. ✅ Hardcoded paths: Dynamic $SCRIPT_DIR, install.sh generates plist with real paths
 4. ✅ Missing files: Created safety-rules.json + enforcement_recovery_module.sh + egress watcher + status
-5. ✅ Weak parsing: Better target extraction (awk loop for last non-flag arg), quote/semi strip, realpath
-6. ✅ Error handling: Fallbacks in enforce/hooks, || true guards, checks for jq/fswatch
-7. ✅ macOS compat: Added PlatformSpecific/Created events, networksetup+ifconfig+pfctl+kill patterns, launchd Throttle/Nice
-8. ✅ Coverage: Self-monitoring (P3), egress (P5), hash stub (P4)
+5. ✅ Weak parsing: Better target extraction + realpath
+6. ✅ Error handling: Fallbacks, guards, dependency checks
+7. ✅ macOS compat: PlatformSpecific events, pfctl + networksetup patterns, Throttle/Nice
+8. ✅ Coverage: Self-monitoring, egress (basic), hash stub
 
-All 6 features implemented (priority order):
-P1 ✅ Robust path quoting & event parsing: Done in monitor + hooks
-P2 ✅ macOS-native enforcement: Full enforcement_recovery_module.sh with setup/enforce/restore/status using networksetup/ifconfig/pfctl
-P3 ✅ Self-monitoring & tamper resistance: fswatch includes $SENTRY_DIR and ~/.hermes in ALL_PATHS
-P4 ✅ Smart allow-list + hash: safety-rules.json extended with trusted_hashes, check_hash_allowlist stub + improved is_dangerous
-P5 ✅ Minimal proc+egress watcher: New sandbox-egress-watcher.sh (lsof loop)
-P6 ✅ Launchd + diagnostics: install.sh adds ThrottleInterval/Nice, new sentry-status.sh, dynamic plist
+=== 2025-05 follow-up fixes (this session) ===
+- ✅ Critical logic bug fixed: `is_outside_allowed` was inverted (was blocking safe paths inside allowed dirs). Renamed to `is_path_in_allowed_project`, now uses line-based reading to properly support paths with spaces ("Vibe Coding" etc.).
+- ✅ Process suspension (`kill -STOP`) **fully implemented** in enforcement_recovery_module.sh:
+  - Best-effort PID discovery from both shell hook (PPID/children) and fswatch (lsof on the path).
+  - Whitelist to protect fswatch, Terminal, launchd etc.
+  - Suspended PIDs recorded and auto-resumed on successful restore.
+- ✅ Mandatory confirmation for restore:
+  - Random 8-char code generated and displayed prominently on every enforcement.
+  - `restore` now requires typing the exact code (or EMERGENCY + full responsibility phrase).
+  - 3-second countdown + extra guard for no-code-file case.
+- ✅ Improved bypass resistance in hooks:
+  - `exec rm ...`, `(zsh|bash|sh) -c 'dangerous...'`, `python -c` / `perl -e` containing rm/sudo/system, TTY wrappers (script/expect).
+- ✅ fswatch monitor now passes lsof-derived PID hints to enforcement for more targeted freezing.
+- ✅ .gitignore fixed: no longer excludes the two most critical runtime files.
 
-System remains lightweight (pure scripts + fswatch + macOS builtins). Robust, usable.
+All 6 original features implemented (priority order):
+P1 ✅ ... (see above)
+P2 ✅ ... (see above)
+P3 ✅ ...
+P4 ✅ ...
+P5 ✅ ...
+P6 ✅ ...
+
+=== Major gaps closed in follow-up (May 2025) ===
+- Process freeze (`kill -STOP` + resume) — now real, not just advertised
+- Mandatory interactive confirmation on restore (with one-time code)
+- Critical command-detection logic bugs fixed + bypass patterns covered
+
+System is now significantly closer to the original "physical enforcement with no LLM in hot path" vision. Still lightweight.
 
 Files created/modified:
 - safety-rules.json (new)
@@ -101,4 +121,5 @@ Files created/modified:
 - sentry-status.sh (new, P6)
 - REVIEW_AND_SUGGESTIONS.md (this update)
 
-All tasks complete. Ready for use.
+All original tasks + 2025 follow-up hardening complete.
+The three highest-impact gaps (process freeze, safe restore confirmation, command parsing correctness + bypass defense) have been addressed.

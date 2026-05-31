@@ -1,6 +1,13 @@
 Agentic Sandbox Sentry (智能体多宿主物理环境安全断路器)
 Lightweight macOS-Native Real-Time Command Auditing Architecture
 
+NOTE (2025 update): Implementation has diverged from this early design document.
+- The project uses pure shell + fswatch (no Python policy/monitor files were ultimately created).
+- Major hardening added later: real `kill -STOP` process suspension with auto-resume,
+  mandatory one-time restore code + interactive confirmation, and bypass detection for common
+  subshell / one-liner evasion techniques.
+See REVIEW_AND_SUGGESTIONS.md for current status.
+
 TARGET
 - Real-time auditing of remote AI-controlled Terminal (zsh/bash) sessions
 - Detect: `rm` outside allowed dirs, sensitive file/key access (e.g. ~/.ssh, ~/.aws, private keys)

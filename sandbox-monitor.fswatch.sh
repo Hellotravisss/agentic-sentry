@@ -1,6 +1,7 @@
 #!/bin/bash
 # fswatch aggressive event-driven monitor for Agentic Sandbox Sentry
 # Triggers physical enforcement immediately on dangerous file operations
+# Now also passes PID hints to enforcement for targeted process freezing (kill -STOP)
 # Robust path handling for spaces, macOS event flags, error handling
 # Requires: brew install fswatch
 
@@ -11,6 +12,11 @@ SAFETY_RULES="${SAFETY_RULES:-$HOME/.hermes/safety-rules.json}"
 ENFORCEMENT_SCRIPT="${ENFORCEMENT_SCRIPT:-$SCRIPT_DIR/enforcement_recovery_module.sh}"
 AUDIT_LOG="${AUDIT_LOG:-/tmp/sandbox-audit.log}"
 SENTRY_DIR="$SCRIPT_DIR"
+
+# Load unified structured logger
+if [[ -f "$SCRIPT_DIR/sentry-logger.sh" ]]; then
+    source "$SCRIPT_DIR/sentry-logger.sh"
+fi
 
 if ! command -v fswatch >/dev/null 2>&1; then
     echo "ERROR: fswatch not installed."
@@ -59,12 +65,25 @@ fswatch -r -x --event-flags "${ALL_PATHS[@]}" 2>/dev/null | while IFS= read -r l
         reason="fswatch: dangerous file operation ($events) on $path"
 
         echo "[AGGRESSIVE] $reason"
-        echo "{\"ts\":\"$(date -Iseconds)\",\"event\":\"fswatch\",\"path\":\"$path\",\"events\":\"$events\",\"decision\":\"ENFORCED\"}" >> "$AUDIT_LOG"
+        if command -v sentry_log >/dev/null 2>&1; then
+            sentry_log "ENFORCED" "$reason" "fswatch" "{\"path\":\"$path\",\"events\":\"$events\"}"
+        else
+            echo "{\"ts\":\"$(date -Iseconds)\",\"event\":\"fswatch\",\"path\":\"$path\",\"events\":\"$events\",\"decision\":\"ENFORCED\"}" >> "$AUDIT_LOG"
+        fi
         logger -t sandbox-sentry "$reason"
 
-        # Immediately trigger physical enforcement
+        # Try to capture PIDs that currently have the path (or its dir) open — helps targeted freezing
+        local pids_hint
+        pids_hint=$(lsof -t "$path" 2>/dev/null | head -4 || true)
+        if [[ -z "$pids_hint" && -d "$path" ]]; then
+            pids_hint=$(lsof -t +D "$path" 2>/dev/null | head -5 || true)
+        elif [[ -z "$pids_hint" ]]; then
+            pids_hint=$(lsof -t +D "$(dirname "$path")" 2>/dev/null | head -5 || true)
+        fi
+
+        # Immediately trigger physical enforcement (pass pids_hint as 2nd arg for process freeze)
         if [[ -x "$ENFORCEMENT_SCRIPT" ]]; then
-            "$ENFORCEMENT_SCRIPT" enforce "$reason" || echo "Enforcement failed (non-fatal)"
+            "$ENFORCEMENT_SCRIPT" enforce "$reason" "$pids_hint" || echo "Enforcement failed (non-fatal)"
         else
             echo "ERROR: Enforcement script not found or not executable at $ENFORCEMENT_SCRIPT!"
             # Fallback inline

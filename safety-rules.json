@@ -1,0 +1,30 @@
+{
+  "sensitive_paths": [
+    "$HOME/.ssh",
+    "$HOME/.gnupg",
+    "$HOME/Library/Keychains",
+    "/etc",
+    "/System",
+    "/private/etc",
+    "/private/var/db"
+  ],
+  "allowed_project_dirs": [
+    "$HOME/Projects",
+    "$HOME/go",
+    "$HOME/Documents/Vibe Coding",
+    "$HOME/shenzhou23-video",
+    "$HOME/Documents/Vibe_Coding"
+  ],
+  "dangerous_commands": [
+    "rm -rf",
+    "sudo",
+    "networksetup",
+    "ifconfig",
+    "pfctl",
+    "curl .*\\|.*(bash|sh|zsh)"
+  ],
+  "trusted_hashes": {
+    "/usr/bin/git": "example-sha256-here",
+    "/opt/homebrew/bin/fswatch": "example-sha256-here"
+  }
+}

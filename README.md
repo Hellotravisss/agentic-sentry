@@ -7,7 +7,7 @@ When you let phone or cloud-based AI agents (like ChatGPT, Claude, Grok, etc.) r
 ## Core Features
 
 - **Millisecond detection** — zsh preexec hooks + fswatch event monitoring
-- **Physical enforcement** — immediately disables Wi-Fi/Ethernet and suspends processes (`kill -STOP`)
+- **Physical enforcement** — immediately disables Wi-Fi/Ethernet + loads full outbound block via pf + freezes suspicious processes (`kill -STOP`)
 - **Zero LLM dependency** in the hot path — pure local rules
 - **Self-protection** — monitors its own files and rules
 - **Lightweight** — pure shell + fswatch, no heavy dependencies
@@ -78,10 +78,14 @@ Agentic-Sandbox-Sentry/
 After enforcement triggers, run:
 
 ```bash
-./enforcement_recovery_module.sh recover
+./enforcement_recovery_module.sh restore
 ```
 
-This requires manual confirmation before restoring network access.
+**This now requires the one-time restore code** that was printed in large text during enforcement (also saved to `/tmp/agentsentry-restore.code`).
+
+There is also an emergency override path (type `EMERGENCY` then a confirmation phrase), but it is intentionally cumbersome.
+
+Any processes that were frozen with `kill -STOP` will be automatically resumed (`kill -CONT`) upon successful restore.
 
 ## License
 

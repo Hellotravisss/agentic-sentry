@@ -7,10 +7,7 @@
 /tmp/sandbox-audit.log
 /tmp/suspended_pids.txt
 /tmp/agentsentry-*.log
-
-# User-specific
-safety-rules.json
-enforcement_recovery_module.sh
+/tmp/agentsentry-restore.code
 
 # IDE / Editor
 .idea/
