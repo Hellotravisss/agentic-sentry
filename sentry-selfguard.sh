@@ -40,6 +40,8 @@ META_FILE="$SENTRY_HOME/sentry-baseline.sha256.meta"
 SELFGUARD_PID_FILE="$SENTRY_LOG_DIR/selfguard.pid"
 ENFORCEMENT_SCRIPT="${ENFORCEMENT_SCRIPT:-$SCRIPT_DIR/enforcement_recovery_module.sh}"
 
+mkdir -p "$SENTRY_HOME" "$SENTRY_LOG_DIR" 2>/dev/null || true
+
 # Meta-hash file (hash of the meta file itself — tamper chain protection)
 META_META_FILE="$SENTRY_HOME/sentry-baseline.sha256.metahash"
 

@@ -434,7 +434,7 @@ _render_recent_violations() {
     if [[ -z "$violations" ]]; then
         printf "  ${CYAN}│${NC}  ${DIM}(no violations recorded yet)${NC}\n"
     else
-        echo "$violations" | tail -r | while IFS='|' read -r ts decision reason severity; do
+        echo "$violations" | awk '1 { lines[NR] = $0 } END { for (i = NR; i >= 1; i--) print lines[i] }' | while IFS='|' read -r ts decision reason severity; do
             local color="$GREEN" icon="ℹ"
             case "$decision" in
                 *BLOCKED*|HARD_ENFORCEMENT) color="$RED"; icon="⛔" ;;
