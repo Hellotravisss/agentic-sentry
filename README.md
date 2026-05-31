@@ -2,16 +2,30 @@
 
 **A lightweight, open-source macOS security tool that provides millisecond-level protection against rogue AI agents remotely controlling your Terminal.**
 
-When you let phone or cloud-based AI agents (like ChatGPT, Claude, Grok, etc.) run commands on your Mac, there is always a risk of unintended or malicious file deletion and credential access. Agentic Sandbox Sentry solves this by monitoring commands and file system events in real time and **physically cutting network access + freezing processes** the moment dangerous behavior is detected — with no LLM second pass.
+## What it does
+
+Agentic Sandbox Sentry monitors every command executed in your Terminal in real time. When it detects dangerous behavior (such as `rm -rf` outside allowed directories, accessing SSH keys, running `sudo`, or attempting network changes), it **immediately** takes physical action:
+
+- Cuts network access (Wi-Fi + Ethernet)
+- Freezes the suspicious process (`kill -STOP`)
+- Logs the event with structured data
+
+All detection and enforcement happens **locally with zero LLM involvement** in the hot path.
+
+## Why it matters
+
+When you allow AI agents (ChatGPT, Claude, Grok, Cursor, etc.) to run commands on your machine, you are giving them significant power. Even well-intentioned models can make catastrophic mistakes. Malicious prompts or compromised agents can cause irreversible damage.
+
+Agentic Sandbox Sentry acts as a **last line of physical defense** — it doesn't rely on the AI to behave correctly. It enforces hard boundaries at the system level.
 
 ## Core Features
 
 - **Millisecond detection** — zsh preexec hooks + fswatch event monitoring
-- **Physical enforcement** — immediately disables Wi-Fi/Ethernet + loads full outbound block via pf + freezes suspicious processes (`kill -STOP`)
+- **Physical enforcement** — immediately disables network + freezes processes
 - **Zero LLM dependency** in the hot path — pure local rules
-- **Self-protection** — monitors its own files, rules, and baseline integrity with meta-hash verification
+- **Self-protection** — monitors its own files and baseline integrity with meta-hash verification
 - **Lightweight** — pure shell + fswatch, no heavy dependencies
-- **macOS native** — works with standard tools (`networksetup`, `ifconfig`, `pmset`, `launchd`, `pfctl`)
+- **macOS native** — works with standard tools (`networksetup`, `ifconfig`, `pfctl`, `launchd`)
 - **Robust recovery** — mandatory one-time restore code + auto-resume of frozen processes
 
 ## What It Blocks
@@ -21,10 +35,10 @@ When you let phone or cloud-based AI agents (like ChatGPT, Claude, Grok, etc.) r
 - Any `sudo` command or privilege escalation
 - Network configuration changes and egress attempts
 - `curl ... | bash` and one-liner execution patterns
-- File operations on sensitive paths (Removed, Renamed, chmod, etc.) via fswatch
-- Common bypass techniques (exec, subshells, python -c, expect, etc.)
+- File operations on sensitive paths via fswatch
+- Common bypass techniques (exec, subshells, `python -c`, `expect`, etc.)
 
-## Quick Start
+## Installation
 
 ### Prerequisites
 
@@ -32,154 +46,51 @@ When you let phone or cloud-based AI agents (like ChatGPT, Claude, Grok, etc.) r
 brew install fswatch jq
 ```
 
-### 1. Clone and Install
+### One-command Install
 
 ```bash
-git clone https://github.com/your-org/Agentic-Sandbox-Sentry.git
-cd Agentic-Sandbox-Sentry
-chmod +x *.sh sentryctl
+git clone https://github.com/Hellotravisss/agentic-sandbox-sentry.git
+cd agentic-sandbox-sentry
 ./install.sh
 ```
 
-The installer:
-- Detects your script directory dynamically
-- Generates a tailored launchd plist
-- Sets up baseline integrity hashes for self-protection
-- Provides clear next steps
+The installer will:
+- Set up shell hooks
+- Generate a launchd plist for background monitoring
+- Initialize self-protection baseline
+- Install the `sentryctl` command
 
-### 2. Load Shell Protection (zsh)
+See `./install.sh --help` for advanced options (`--dry-run`, `--uninstall`, etc.).
 
-```bash
-echo 'source "$(pwd)/sandbox-hooks.zsh"' >> ~/.zshrc
-source ~/.zshrc
-```
+## Usage
 
-### 3. Enable Background Monitoring (recommended)
-
-Install the launchd agent for automatic startup and recovery:
+After installation, you can interact with the tool in several ways:
 
 ```bash
-./install.sh launchd   # or manually load the generated plist
+# Check current status
+sentryctl status
+
+# View recent violations
+sentryctl violations
+
+# Open the interactive TUI
+sentryctl tui
+
+# Open the web dashboard
+sentryctl dashboard
+
+# Check self-protection status
+sentryctl selfguard status
 ```
 
-Or run manually:
+## Safety Disclaimer
 
-```bash
-nohup ./sandbox-monitor.fswatch.sh > /tmp/sentry-monitor.log 2>&1 &
-```
+**Use at your own risk.**
 
-### 4. Verify Status
+This tool performs aggressive actions including network isolation and process suspension. While designed to protect your system, it may:
 
-```bash
-./sentry-status.sh
-# or
-./sentryctl status
-```
+- Interrupt legitimate workflows
+- Require manual recovery in some edge cases
+- Have limitations in detecting highly sophisticated attacks
 
-## Usage Examples
-
-### Normal Operation
-```bash
-$ ls
-Documents  Downloads  ...
-
-$ cd ~/safe-project
-$ echo "hello" > test.txt
-# Works normally
-```
-
-### Detection in Action
-```bash
-$ rm -rf ~/Documents
-🚨 BLOCKED: rm outside allowed project dirs
-[Agentic Sandbox Sentry] Enforcement triggered. Network isolated. Processes frozen.
-Restore code: A7K9P2QX
-See /tmp/agentsentry-restore.code
-```
-
-### Recovery
-```bash
-./enforcement_recovery_module.sh restore
-# Enter the exact restore code when prompted
-```
-
-## Configuration
-
-Key files:
-- `safety-rules.json` — sensitive paths and patterns
-- `sentry-config.sh` — allowed directories, logging settings
-- Edit `sandbox-hooks.zsh` to customize `is_path_in_allowed_project()` logic
-
-Allowed directories are defined relative to your home (supports spaces in paths like "Vibe Coding").
-
-## Troubleshooting
-
-### Hooks not triggering
-- Ensure `source .../sandbox-hooks.zsh` is in `~/.zshrc` (not `.zprofile`)
-- Run `typeset -f preexec` to verify the function is loaded
-- Check for syntax errors: `zsh -n sandbox-hooks.zsh`
-
-### fswatch monitor not starting
-- Verify `fswatch --version`
-- Check launchd status: `launchctl list | grep agentsentry`
-- Logs: `tail -f /tmp/sentry-monitor.log`
-
-### False positives on safe paths
-- Update the allow-list logic in `sandbox-hooks.zsh` (function `is_path_in_allowed_project`)
-- Use full realpath resolution (already handled)
-
-### Restore code lost
-- The code is also written to `/tmp/agentsentry-restore.code`
-- Emergency override available (intentionally cumbersome)
-
-### Self-protection alerts
-- If sentry files are modified, full enforcement triggers automatically
-- Re-run `./install.sh` to regenerate baseline hashes after intentional updates
-
-### Network not restoring
-- Run `./enforcement_recovery_module.sh restore` with the code
-- Manual fallback: `sudo pfctl -F all -f /etc/pf.conf && networksetup -setairportpower en0 on`
-
-## Project Structure
-
-```
-Agentic-Sandbox-Sentry/
-├── sandbox-hooks.zsh              # zsh command interceptor + policy
-├── sandbox-monitor.fswatch.sh     # real-time fswatch file monitor + PID hints
-├── enforcement_recovery_module.sh # physical network cut + process freeze + restore
-├── sandbox-egress-watcher.sh      # outbound connection monitor
-├── sentry-status.sh               # diagnostics and health checks
-├── sentry-logger.sh               # structured JSON logging with rotation
-├── sentry-selfguard.sh            # self-protection + baseline integrity
-├── sentryctl                      # main control CLI
-├── sentry-config.sh               # environment and path configuration
-├── safety-rules.json              # detection rules
-├── com.agentsentry.fswatch.plist  # launchd auto-start (generated)
-├── install.sh                     # robust one-command installer + launchd setup
-├── auditd-lightweight.rules       # optional auditd support
-├── tests/                         # validation suite
-├── README.md
-├── ARCHITECTURE.md
-└── LICENSE
-```
-
-## Recovery & Enforcement Flow
-
-1. Violation detected via hook or fswatch
-2. Enforcement script called with context (path, PID hints)
-3. Network isolated (Wi-Fi off, pf outbound block)
-4. Suspicious processes frozen with `kill -STOP`
-5. Random 8-char restore code displayed + saved
-6. On restore: verify code, flush pf, re-enable network, `kill -CONT` frozen processes
-
-## License
-
-MIT License — free for personal and commercial use.
-
-## Contributing
-
-Pull requests are welcome. Please keep changes lightweight and focused on the "no LLM in hot path + physical enforcement" philosophy. Run the test suite in `tests/` before submitting.
-
-## Disclaimer
-
-This tool performs aggressive network isolation and process suspension. Use at your own risk. Always test in a safe environment first. The authors are not responsible for data loss or lockouts.
+Always test in a safe environment first. The authors are not responsible for any data loss or system issues caused by the use of this software.
