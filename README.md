@@ -4,10 +4,12 @@
 
 ## What it does
 
-Agentic Sandbox Sentry monitors every command executed in your Terminal in real time. When it detects dangerous behavior (such as `rm -rf` outside allowed directories, accessing SSH keys, running `sudo`, or attempting network changes), it **immediately** takes physical action:
+Agentic Sandbox Sentry monitors commands executed in your Terminal in real time. In the default `soft-block` mode, it blocks or warns on dangerous behavior such as `rm -rf` outside allowed directories, accessing SSH keys, running `sudo`, or attempting network changes.
+
+When configured for `hard` enforcement, or when self-protection monitors detect severe tampering, it can take physical action:
 
 - Cuts network access (Wi-Fi + Ethernet)
-- Freezes the suspicious process (`kill -STOP`)
+- Freezes suspicious processes (`kill -STOP`)
 - Logs the event with structured data
 
 All detection and enforcement happens **locally with zero LLM involvement** in the hot path.
@@ -21,7 +23,7 @@ Agentic Sandbox Sentry acts as a **last line of physical defense** — it doesn'
 ## Core Features
 
 - **Millisecond detection** — zsh preexec hooks + fswatch event monitoring
-- **Physical enforcement** — immediately disables network + freezes processes
+- **Configurable physical enforcement** — hard mode can disable network + freeze processes
 - **Zero LLM dependency** in the hot path — pure local rules
 - **Self-protection** — monitors its own files and baseline integrity with meta-hash verification
 - **Lightweight** — pure shell + fswatch, no heavy dependencies

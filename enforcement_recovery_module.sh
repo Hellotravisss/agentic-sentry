@@ -119,7 +119,9 @@ setup() {
     sudo mkdir -p /etc/pf.anchors
     echo 'block drop out proto {tcp,udp} from any to any' | sudo tee "$PF_RULES" >/dev/null
     sudo chmod 600 "$PF_RULES"
-    echo "anchor \"agentsentry\"" | sudo tee -a /etc/pf.conf >/dev/null || true
+    if ! grep -q '^anchor "agentsentry"' /etc/pf.conf 2>/dev/null; then
+        echo "anchor \"agentsentry\"" | sudo tee -a /etc/pf.conf >/dev/null || true
+    fi
     sudo pfctl -e 2>/dev/null || true
     echo "✅ pf anchor ready. Use 'restore' to revert."
     echo "Also backing up current WiFi state..."
@@ -282,9 +284,9 @@ restore() {
     # Restore interface
     sudo ifconfig "$iface" up 2>/dev/null || true
 
-    # Disable pf anchor
+    # Clear only the Sentry-owned pf anchor. Do not disable global pf because
+    # users may rely on pf for unrelated firewall/VPN/security rules.
     sudo pfctl -a agentsentry -F all 2>/dev/null || true
-    sudo pfctl -d 2>/dev/null || true
 
     echo ""
     echo "✅ Network restored. Check connectivity (ping 8.8.8.8 or open a browser)."

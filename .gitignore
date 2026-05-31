@@ -28,7 +28,6 @@
 # Go
 tui/sentry-tui
 **/*.test
-**/go.sum
 
 # Python (Dashboard)
 dashboard/__pycache__/

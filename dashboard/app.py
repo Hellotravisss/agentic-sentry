@@ -462,6 +462,10 @@ def stream_logs():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7777))
+    host = os.environ.get("HOST", "127.0.0.1")
+    debug = os.environ.get("FLASK_DEBUG", "0") == "1"
+
+    display_host = "localhost" if host in {"127.0.0.1", "localhost"} else host
     print(f"\n  Agentic Sandbox Sentry Dashboard")
-    print(f"  http://localhost:{port}\n")
-    app.run(host="0.0.0.0", port=port, debug=True)
+    print(f"  http://{display_host}:{port}\n")
+    app.run(host=host, port=port, debug=debug)
