@@ -11,7 +11,7 @@ if [[ -f "$SCRIPT_DIR/sentry-config.sh" ]]; then
     source "$SCRIPT_DIR/sentry-config.sh"
     load_sentry_config 2>/dev/null || true
 else
-    echo "Warning: sentry-config.sh not found. Some features may be limited."
+    echo -e "\033[1;33mwarning:\033[0m sentry-config.sh not found. Some features may be limited." >&2
 fi
 
 # Colors for better UX
@@ -19,14 +19,85 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+DIM='\033[2m'
+BOLD='\033[1m'
 NC='\033[0m' # No Color
+
+SENTRY_VERSION="0.4.0"
+
+# --- Visual helpers for consistent formatting ---
+
+# Print a section header with consistent styling
+# Usage: _header "Title" [color]
+_header() {
+    local title="$1"
+    local color="${2:-$BLUE}"
+    echo -e "${color}${BOLD}━━━ ${title} ━━━${NC}"
+}
+
+# Print a thin divider line
+_divider() {
+    echo -e "${DIM}────────────────────────────────────────${NC}"
+}
+
+# Print a colored status badge
+# Usage: _badge "TEXT" color
+# Colors: ok, warn, fail, info
+_badge() {
+    local text="$1"
+    local type="${2:-info}"
+    case "$type" in
+        ok|green)   echo -e "${GREEN}${BOLD}✓ ${text}${NC}" ;;
+        warn|yellow) echo -e "${YELLOW}${BOLD}⚠ ${text}${NC}" ;;
+        fail|red)   echo -e "${RED}${BOLD}✗ ${text}${NC}" ;;
+        info|blue)  echo -e "${BLUE}${BOLD}● ${text}${NC}" ;;
+        *)          echo -e "${BOLD}${text}${NC}" ;;
+    esac
+}
+
+# Print dimmed/hint text
+_hint() {
+    echo -e "  ${DIM}$*${NC}"
+}
+
+# Colorized error message
+_error() {
+    echo -e "${RED}error:${NC} $*" >&2
+}
+
+# Colorized success message
+_success() {
+    echo -e "${GREEN}✓${NC} $*"
+}
 
 cmd_dashboard() {
     load_sentry_config 2>/dev/null || true
     local current_mode="${SENTRY_MODE:-soft-block}"
 
-    echo -e "${BLUE}=== Agentic Sandbox Sentry ===${NC}"
-    echo -e "Mode: ${YELLOW}${current_mode}${NC}     (use 'sentryctl mode' to change)"
+    _header "Agentic Sandbox Sentry" "$BLUE"
+    echo -e "  ${BOLD}Mode:${NC}    ${YELLOW}${current_mode}${NC}"
+
+    # Component status line
+    local fswatch_status selfguard_status
+    if pgrep -f "sandbox-monitor.fswatch.sh" >/dev/null 2>&1; then
+        fswatch_status="${GREEN}●${NC}"
+    else
+        fswatch_status="${YELLOW}○${NC}"
+    fi
+    local sg_pf="$SENTRY_LOG_DIR/selfguard.pid"
+    if [[ -f "$sg_pf" ]]; then
+        local sp; sp=$(cat "$sg_pf" 2>/dev/null || echo "")
+        if [[ -n "$sp" ]] && kill -0 "$sp" 2>/dev/null; then
+            selfguard_status="${GREEN}●${NC}"
+        else
+            selfguard_status="${YELLOW}○${NC}"
+        fi
+    else
+        selfguard_status="${YELLOW}○${NC}"
+    fi
+    echo -e "  ${BOLD}Agents:${NC}  fswatch ${fswatch_status}  selfguard ${selfguard_status}"
     echo ""
 
     local log_file="$HOME/.hermes/logs/sandbox-audit.log"
@@ -37,9 +108,10 @@ cmd_dashboard() {
         total=$(wc -l < "$log_file" | tr -d ' ')
         blocked=$(grep -cE 'SOFT_BLOCKED|HARD_ENFORCEMENT' "$log_file" 2>/dev/null) || blocked=0
 
-        echo "Total events: $total    |    Blocked attempts: $blocked"
+        echo -e "  ${BOLD}Events:${NC}  $total total  ${RED}${blocked} blocked${NC}"
         echo ""
-        echo -e "${BLUE}Last 5 events:${NC}"
+
+        _header "Recent Activity" "$CYAN"
         tail -5 "$log_file" | while read -r line; do
             if command -v jq >/dev/null 2>&1; then
                 local ts decision reason
@@ -51,83 +123,103 @@ cmd_dashboard() {
                 [[ "$decision" == *"BLOCK"* || "$decision" == *"HARD"* ]] && color="$RED"
                 [[ "$decision" == "DETECTED" ]] && color="$YELLOW"
 
-                printf "  ${color}[%s] %s - %s${NC}\n" "$ts" "$decision" "$reason"
+                printf "  ${color}[%s] %s — %s${NC}\n" "$ts" "$decision" "$reason"
             else
                 echo "  $line"
             fi
         done
     else
-        echo "No events recorded yet."
+        _hint "No events recorded yet."
     fi
 
     echo ""
-    echo "Popular commands:  last | stats | watch | logs --follow | mode"
+    _divider
+    echo -e "  ${DIM}Commands:${NC} last ${DIM}|${NC} stats ${DIM}|${NC} watch ${DIM}|${NC} logs --follow ${DIM}|${NC} mode ${DIM}|${NC} health"
 }
 
 usage() {
-    echo "Agentic Sandbox Sentry Control"
+    echo -e "${BOLD}Agentic Sandbox Sentry${NC} v${SENTRY_VERSION}"
+    echo -e "${DIM}Unified CLI for sandbox protection and audit${NC}"
     echo ""
-    echo "Usage: sentryctl <command> [options]"
+    echo -e "${BOLD}Usage:${NC} sentryctl ${DIM}<command>${NC} ${DIM}[options]${NC}"
     echo ""
-    echo "Commands:"
-    echo "  status              Show current status and configuration"
-    echo "  health              Component health check (exit code = health score)"
-    echo "  violations          Detailed violation report (reasons, commands, severity)"
-    echo "  mode [name]         Show or switch protection mode (audit|warn|soft-block|hard)"
-    echo "  logs [search] [--tail N] [--follow] [--json] [--blocked] [--since 1h]"
-    echo "                      Powerful log viewer (search, filter, follow)"
-    echo "  last                Show the 8 most recent events (very useful)"
-    echo "  stats / summary     Activity statistics and top reasons"
-    echo "  explain [N]         Show full details of the Nth most recent event"
-    echo "  watch               Live updating dashboard (great for monitoring AI)"
-    echo "  selfguard           Self-protection status and integrity check"
-    echo "  config              Show full effective configuration"
-    echo "  allow-dir <path>    Add a directory to allowed project dirs"
-    echo "  test <command>      Quick heuristic test of a command"
-    echo "  notifications [on|off]  Enable/disable macOS notifications"
+
+    echo -e "${BOLD}Monitoring:${NC}"
+    echo -e "  ${CYAN}dashboard${NC}        Live overview: mode, event counts, recent activity"
+    echo -e "  ${CYAN}status${NC}           Full system status (hooks, fswatch, selfguard, logs)"
+    echo -e "  ${CYAN}health${NC}           Component health check (exit code = health score)"
+    echo -e "  ${CYAN}watch${NC}            Real-time event stream (great for monitoring AI)"
+    echo -e "  ${CYAN}tui${NC}              Full-screen interactive TUI (status + violations live)"
+    echo -e "  ${CYAN}selfguard${NC}        Self-protection status and integrity verification"
     echo ""
-    echo "Examples:"
-    echo "  sentryctl                           # Nice dashboard (no args = useful!)"
-    echo "  sentryctl last"
-    echo "  sentryctl stats"
-    echo "  sentryctl watch"
-    echo "  sentryctl export --format csv -o audit.csv"
-    echo "  sentryctl logs rm -rf --since 1h"
-    echo "  sentryctl mode warn"
+
+    echo -e "${BOLD}Audit & Logs:${NC}"
+    echo -e "  ${CYAN}logs${NC} [search]    Powerful log viewer with filtering"
+    echo -e "                   ${DIM}--tail N  --follow  --json  --blocked  --since 1h${NC}"
+    echo -e "  ${CYAN}last${NC}             Show 8 most recent events (quick glance)"
+    echo -e "  ${CYAN}stats${NC}            Activity statistics and top violation reasons"
+    echo -e "  ${CYAN}violations${NC}       Detailed violation report (reasons, commands, severity)"
+    echo -e "  ${CYAN}explain${NC} ${DIM}[N]${NC}      Full details of the Nth most recent event"
+    echo -e "  ${CYAN}export${NC}           Export audit logs to JSON or CSV"
+    echo ""
+
+    echo -e "${BOLD}Configuration:${NC}"
+    echo -e "  ${CYAN}mode${NC} ${DIM}[name]${NC}      Show or switch protection mode"
+    echo -e "                   ${DIM}audit | warn | soft-block | hard${NC}"
+    echo -e "  ${CYAN}config${NC}           Show full effective configuration"
+    echo -e "  ${CYAN}allow-dir${NC} ${DIM}<path>${NC}  Add a directory to allowed project dirs"
+    echo -e "  ${CYAN}notifications${NC}    ${DIM}[on|off]${NC}  Enable/disable macOS notifications"
+    echo ""
+
+    echo -e "${BOLD}Utilities:${NC}"
+    echo -e "  ${CYAN}test${NC} ${DIM}<command>${NC}    Quick heuristic test of a command"
+    echo -e "  ${CYAN}rotate${NC}           Manually rotate all Sentry log files"
+    echo ""
+
+    _divider
+    echo -e "${BOLD}Quick Start:${NC}"
+    echo -e "  ${DIM}sentryctl${NC}                    ${DIM}# Dashboard — no args = useful!${NC}"
+    echo -e "  ${DIM}sentryctl last${NC}               ${DIM}# Last 8 events at a glance${NC}"
+    echo -e "  ${DIM}sentryctl stats${NC}              ${DIM}# Activity summary${NC}"
+    echo -e "  ${DIM}sentryctl watch${NC}              ${DIM}# Live event stream${NC}"
+    echo -e "  ${DIM}sentryctl logs rm -rf --since 1h${NC}  ${DIM}# Search logs${NC}"
+    echo -e "  ${DIM}sentryctl mode warn${NC}          ${DIM}# Switch to warn mode${NC}"
+    echo -e "  ${DIM}sentryctl health${NC}             ${DIM}# System health check${NC}"
 }
 
 cmd_status() {
-    echo -e "${BLUE}=== Agentic Sandbox Sentry Status ===${NC}"
-    echo "Date: $(date)"
+    _header "Agentic Sandbox Sentry Status" "$BLUE"
+    echo -e "  ${DIM}Date: $(date)${NC}"
     echo ""
 
     # Config
     if command -v print_sentry_config >/dev/null 2>&1; then
         print_sentry_config
     else
-        echo "Mode: ${SENTRY_MODE:-unknown}"
+        echo -e "  Mode: ${YELLOW}${SENTRY_MODE:-unknown}${NC}"
     fi
 
     echo ""
-    echo -e "${BLUE}1. Shell hooks:${NC}"
+    _header "Shell Hooks" "$CYAN"
     if [[ -n "${ZSH_VERSION:-}" ]]; then
-        echo "  Running in zsh"
+        _badge "Running in zsh" "ok"
     else
-        echo "  (Run 'source sandbox-hooks.zsh' in your shell to activate)"
+        _badge "Not loaded in current shell" "warn"
+        _hint "Run 'source sandbox-hooks.zsh' to activate"
     fi
 
     echo ""
-    echo -e "${BLUE}2. Background monitor (fswatch):${NC}"
+    _header "Background Monitor (fswatch)" "$CYAN"
     if pgrep -f "sandbox-monitor.fswatch.sh" >/dev/null 2>&1; then
-        echo -e "  ${GREEN}Running${NC}"
+        _badge "Running" "ok"
     else
-        echo -e "  ${YELLOW}Not running${NC} (recommended: launchctl or nohup)"
+        _badge "Not running" "warn"
+        _hint "Recommended: launchctl or nohup"
     fi
 
     echo ""
-    echo -e "${BLUE}3. Recent activity (last 5 events):${NC}"
+    _header "Recent Activity (last 5)" "$CYAN"
     if [[ -f "${AUDIT_LOG:-/tmp/sandbox-audit.log}" ]]; then
-        # Reuse logs command logic for pretty recent summary
         tail -5 "${AUDIT_LOG:-/tmp/sandbox-audit.log}" | while read -r line; do
             if command -v jq >/dev/null 2>&1; then
                 local decision reason ts
@@ -139,17 +231,18 @@ cmd_status() {
                 [[ "$decision" == *"BLOCK"* || "$decision" == "HARD_ENFORCEMENT" ]] && color="$RED"
                 [[ "$decision" == "DETECTED" ]] && color="$YELLOW"
 
-                printf "  ${color}[%s] %s - %s${NC}\n" "$ts" "$decision" "$reason"
+                printf "  ${color}[%s] %s — %s${NC}\n" "$ts" "$decision" "$reason"
             else
                 echo "  $line"
             fi
         done
     else
-        echo "  No audit log yet"
+        _hint "No audit log yet"
     fi
 
     echo ""
-    echo "Use 'sentryctl logs' for full history, or 'sentryctl logs --follow' for live view."
+    _divider
+    _hint "Full history: sentryctl logs  |  Live view: sentryctl logs --follow"
 }
 
 cmd_mode() {
@@ -157,20 +250,23 @@ cmd_mode() {
 
     if [[ -z "$new_mode" ]]; then
         load_sentry_config
-        echo "Current mode: $SENTRY_MODE"
+        _header "Protection Mode" "$BLUE"
+        echo -e "  Current: ${YELLOW}${BOLD}${SENTRY_MODE}${NC}"
         echo ""
-        echo "Available modes:"
-        echo "  audit        - Only log and notify (maximum compatibility)"
-        echo "  warn         - Log + big warning, command still runs"
-        echo "  soft-block   - Try to block dangerous commands (recommended default)"
-        echo "  hard         - Full physical enforcement (network cut + freeze) — use with caution"
+        echo -e "  ${BOLD}Available modes:${NC}"
+        echo -e "    ${CYAN}audit${NC}        Only log and notify ${DIM}(maximum compatibility)${NC}"
+        echo -e "    ${CYAN}warn${NC}         Log + big warning, command still runs"
+        echo -e "    ${CYAN}soft-block${NC}   Try to block dangerous commands ${DIM}(recommended)${NC}"
+        echo -e "    ${CYAN}hard${NC}         Full physical enforcement ${RED}(use with caution)${NC}"
+        echo ""
+        _hint "Switch: sentryctl mode <name>"
         return 0
     fi
 
     if set_sentry_mode "$new_mode"; then
         echo ""
-        echo -e "${GREEN}✓ Mode changed to '$new_mode'${NC}"
-        echo "  You may need to reload your shell (source ~/.zshrc) for hooks to pick up the change."
+        _success "Mode changed to '${YELLOW}${new_mode}${NC}'"
+        _hint "You may need to reload your shell (source ~/.zshrc) for hooks to pick up the change."
     fi
 }
 
@@ -218,8 +314,8 @@ cmd_logs() {
     fi
 
     if [[ ! -f "$log_file" ]]; then
-        echo "No audit log found yet."
-        echo "Logs will appear here after you use the hooks: $HOME/.hermes/logs/sandbox-audit.log"
+        _hint "No audit log found yet."
+        _hint "Logs will appear at: $HOME/.hermes/logs/sandbox-audit.log"
         return 0
     fi
 
@@ -259,9 +355,10 @@ cmd_logs() {
         return
     fi
 
-    echo -e "${BLUE}=== Sentry Logs${NC}  (file: $log_file)"
+    echo -e "${BLUE}${BOLD}━━━ Sentry Logs ━━━${NC}"
+    echo -e "  ${DIM}file: $log_file${NC}"
     if [[ -n "$search_term$decision_filter$mode_filter$since" ]]; then
-        echo -e "Filters: search='${search_term}' decision='${decision_filter}' mode='${mode_filter}' since='${since}'"
+        echo -e "  ${DIM}filters:${NC} search='${search_term}' decision='${decision_filter}' mode='${mode_filter}' since='${since}'"
     fi
     echo ""
 
@@ -296,21 +393,22 @@ cmd_logs() {
 }
 
 cmd_config() {
+    _header "Sentry Configuration" "$BLUE"
     if command -v print_sentry_config >/dev/null 2>&1; then
         print_sentry_config
     else
-        echo "Config loader not available"
+        _hint "Config loader not available"
     fi
 
     echo ""
-    echo "Config file location: ${SENTRY_CONFIG:-$HOME/.hermes/sentry-config.json}"
+    echo -e "  ${BOLD}Config file:${NC} ${DIM}${SENTRY_CONFIG:-$HOME/.hermes/sentry-config.json}${NC}"
 }
 
 cmd_allow_dir() {
     local new_dir="$1"
 
     if [[ -z "$new_dir" ]]; then
-        echo "Usage: sentryctl allow-dir <absolute-or-relative-path>"
+        echo -e "${BOLD}Usage:${NC} sentryctl allow-dir ${DIM}<absolute-or-relative-path>${NC}"
         return 1
     fi
 
@@ -320,12 +418,12 @@ cmd_allow_dir() {
     local rules_file="${SAFETY_RULES:-$HOME/.hermes/safety-rules.json}"
 
     if [[ ! -f "$rules_file" ]]; then
-        echo "Safety rules file not found: $rules_file"
+        _error "Safety rules file not found: $rules_file"
         return 1
     fi
 
     if ! command -v jq >/dev/null 2>&1; then
-        echo "jq is required to modify rules. Please install jq."
+        _error "jq is required to modify rules. Install with: brew install jq"
         return 1
     fi
 
@@ -339,11 +437,11 @@ cmd_allow_dir() {
         )
     ' "$rules_file" > "$tmp"; then
         mv "$tmp" "$rules_file"
-        echo -e "${GREEN}✓ Added to allowed directories:${NC} $new_dir"
-        echo "  You may need to reload your shell for the change to take effect."
+        _success "Added to allowed directories: ${CYAN}$new_dir${NC}"
+        _hint "You may need to reload your shell for the change to take effect."
     else
         rm -f "$tmp"
-        echo "Failed to update rules file."
+        _error "Failed to update rules file."
         return 1
     fi
 }
@@ -357,31 +455,31 @@ cmd_test() {
     local test_cmd="$*"
 
     if [[ -z "$test_cmd" ]]; then
-        echo "Usage: sentryctl test <command string>"
-        echo "Example: sentryctl test 'rm -rf /tmp/important'"
+        echo -e "${BOLD}Usage:${NC} sentryctl test ${DIM}<command string>${NC}"
+        echo -e "${DIM}Example: sentryctl test 'rm -rf /tmp/important'${NC}"
         return 1
     fi
 
-    echo "Testing command: $test_cmd"
+    _header "Command Test" "$BLUE"
+    echo -e "  ${BOLD}Testing:${NC} ${YELLOW}$test_cmd${NC}"
     echo ""
 
     # Source the hooks logic if possible (best effort)
     if [[ -f "$SCRIPT_DIR/sandbox-hooks.zsh" ]]; then
-        # We can't easily call zsh functions from bash, so we do a simple heuristic here
-        echo "(Heuristic test — full evaluation happens inside zsh)"
+        echo -e "  ${DIM}(Heuristic test — full evaluation happens inside zsh)${NC}"
         echo ""
 
         if [[ "$test_cmd" =~ (rm[[:space:]]+-rf?|sudo[[:space:]]|curl.*\|.*(bash|sh)) ]]; then
-            echo -e "${RED}Would likely be considered DANGEROUS${NC}"
+            _badge "DANGEROUS — would likely be blocked" "fail"
         else
-            echo -e "${GREEN}Would likely be considered safe${NC}"
+            _badge "SAFE — would likely be allowed" "ok"
         fi
     else
-        echo "Cannot load full rule engine for test."
+        _hint "Cannot load full rule engine for test."
     fi
 
     echo ""
-    echo "For accurate result, run the command in your actual shell with Sentry hooks loaded."
+    _hint "For accurate result, run the command in your actual shell with Sentry hooks loaded."
 }
 
 cmd_notifications() {
@@ -394,18 +492,20 @@ cmd_notifications() {
             if command -v jq >/dev/null 2>&1; then
                 jq '.notifications = true' "$SENTRY_CONFIG" > /tmp/sentrycfg.$$ && mv /tmp/sentrycfg.$$ "$SENTRY_CONFIG"
             fi
-            echo "Notifications enabled"
+            _success "Notifications enabled"
             ;;
         off|false|disable)
             if command -v jq >/dev/null 2>&1; then
                 jq '.notifications = false' "$SENTRY_CONFIG" > /tmp/sentrycfg.$$ && mv /tmp/sentrycfg.$$ "$SENTRY_CONFIG"
             fi
-            echo "Notifications disabled"
+            _success "Notifications disabled"
             ;;
         *)
             load_sentry_config
-            echo "Notifications are currently: $SENTRY_NOTIFICATIONS"
-            echo "Usage: sentryctl notifications [on|off]"
+            _header "Notifications" "$BLUE"
+            echo -e "  Status: ${YELLOW}${SENTRY_NOTIFICATIONS}${NC}"
+            echo ""
+            _hint "Usage: sentryctl notifications [on|off]"
             ;;
     esac
 }
@@ -417,19 +517,19 @@ cmd_stats() {
     [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
 
     if [[ ! -f "$log_file" ]]; then
-        echo "No audit log found."
+        _hint "No audit log found."
         return 0
     fi
 
-    echo -e "${BLUE}=== Sentry Activity Summary ===${NC}"
+    _header "Sentry Activity Summary" "$BLUE"
     echo ""
 
     local total
     total=$(wc -l < "$log_file" 2>/dev/null | tr -d ' ' || echo 0)
 
     if ! command -v jq >/dev/null 2>&1; then
-        echo "jq recommended for rich stats (brew install jq)"
-        echo "Total events: $total"
+        _hint "jq recommended for rich stats (brew install jq)"
+        echo -e "  Total events: $total"
         return
     fi
 
@@ -438,25 +538,25 @@ cmd_stats() {
     hard=$(grep -c 'HARD_ENFORCEMENT' "$log_file" 2>/dev/null) || hard=0
     detected=$(grep -c '"decision":"DETECTED"' "$log_file" 2>/dev/null) || detected=0
 
-    echo "Total events logged:     $total"
+    echo -e "  ${BOLD}Total events logged:${NC}     $total"
     echo ""
-    echo "Soft blocks (prevented): $soft_blocked"
-    echo "Hard enforcement runs:   $hard"
-    echo "Just detected (allowed): $detected"
+    echo -e "  ${RED}Soft blocks (prevented):${NC} $soft_blocked"
+    echo -e "  ${RED}Hard enforcement runs:${NC}   $hard"
+    echo -e "  ${YELLOW}Just detected (allowed):${NC} $detected"
     echo ""
 
-    echo -e "${BLUE}Top reasons:${NC}"
+    _header "Top Reasons" "$CYAN"
     jq -r '.reason // empty' "$log_file" 2>/dev/null |
         sort | uniq -c | sort -rn | head -6 | while read -r count reason; do
-            printf "  %4s  %s\n" "$count" "$reason"
-        done 2>/dev/null || echo "  (no data yet)"
+            printf "    %4s  %s\n" "$count" "$reason"
+        done 2>/dev/null || _hint "(no data yet)"
 
     echo ""
-    echo -e "${BLUE}Events by mode:${NC}"
+    _header "Events by Mode" "$CYAN"
     jq -r '.mode // "unknown"' "$log_file" 2>/dev/null |
         sort | uniq -c | sort -rn | while read -r count mode; do
-            printf "  %4s  %s\n" "$count" "$mode"
-        done 2>/dev/null || echo "  (no data yet)"
+            printf "    %4s  %s\n" "$count" "$mode"
+        done 2>/dev/null || _hint "(no data yet)"
 }
 
 cmd_explain() {
@@ -465,12 +565,12 @@ cmd_explain() {
     [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
 
     if [[ ! -f "$log_file" ]]; then
-        echo "No audit log found."
+        _error "No audit log found."
         return 1
     fi
 
     if ! command -v jq >/dev/null 2>&1; then
-        echo "jq is strongly recommended for explain. Falling back to raw line."
+        _hint "jq is strongly recommended for explain. Falling back to raw line."
         tail -n "$index" "$log_file" | tail -1
         return
     fi
@@ -479,17 +579,17 @@ cmd_explain() {
     line=$(tail -n "$index" "$log_file" | tail -1)
 
     if [[ -z "$line" ]]; then
-        echo "No event found at position $index"
+        _error "No event found at position $index"
         return 1
     fi
 
-    echo -e "${BLUE}=== Sentry Event Detail ===${NC}"
+    _header "Sentry Event Detail (#$index)" "$BLUE"
     echo "$line" | jq -C .
 
     echo ""
-    echo -e "${YELLOW}Quick actions:${NC}"
-    echo "  • To see surrounding context:  sentryctl logs --tail 20 | grep -i 'your search'"
-    echo "  • To watch live:               sentryctl watch"
+    _header "Quick Actions" "$YELLOW"
+    _hint "Surrounding context: sentryctl logs --tail 20"
+    _hint "Live watch:         sentryctl watch"
 }
 
 cmd_watch() {
@@ -543,7 +643,7 @@ cmd_export() {
     [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
 
     if [[ ! -f "$log_file" ]]; then
-        echo "No log file to export."
+        _error "No log file to export."
         return 1
     fi
 
@@ -566,22 +666,22 @@ cmd_export() {
             if command -v jq >/dev/null 2>&1; then
                 jq -r '[.ts, .mode, .decision, .reason, .cmd, .cwd] | @csv' "$log_file" >> "$outfile" 2>/dev/null || true
             else
-                echo "CSV export works best with jq installed."
+                echo -e "${YELLOW}CSV export works best with jq installed.${NC}"
             fi
             ;;
         *)
-            echo "Supported formats: json, csv"
+            _error "Supported formats: json, csv"
             return 1
             ;;
     esac
 
-    echo "Exported to: $outfile"
+    _success "Exported to: ${CYAN}$outfile${NC}"
 }
 
 # Improved live dashboard
 cmd_watch() {
     clear
-    echo -e "${BLUE}=== Sentry Live Dashboard ===${NC}   (Ctrl-C to exit)"
+    echo -e "${BLUE}${BOLD}━━━ Sentry Live Dashboard ━━━${NC}   ${DIM}(Ctrl-C to exit)${NC}"
     echo ""
 
     local log_file="$HOME/.hermes/logs/sandbox-audit.log"
@@ -589,12 +689,12 @@ cmd_watch() {
 
     # Show initial stats
     if [[ -f "$log_file" ]]; then
-        echo -e "${BLUE}Current stats (last 30s refresh)${NC}"
-        tail -50 "$log_file" | grep -E 'SOFT_BLOCKED|HARD' | wc -l | xargs -I {} echo "Recent blocks: {}"
+        echo -e "  ${BOLD}Recent blocks:${NC} $(tail -50 "$log_file" | grep -cE 'SOFT_BLOCKED|HARD' 2>/dev/null || echo 0) ${DIM}(last 50 events)${NC}"
     fi
 
     echo ""
-    echo -e "${YELLOW}Live events:${NC}"
+    echo -e "  ${YELLOW}${BOLD}Live events:${NC}"
+    _divider
 
     tail -n 3 -f "$log_file" 2>/dev/null | while read -r line; do
         if command -v jq >/dev/null 2>&1; then
@@ -608,9 +708,9 @@ cmd_watch() {
             [[ "$decision" == *"BLOCK"* || "$decision" == *"HARD"* ]] && color="$RED"
             [[ "$decision" == "DETECTED" ]] && color="$YELLOW"
 
-            printf "${color}[%s] %s | %s | %s${NC}\n" "$ts" "$mode" "$decision" "$reason"
+            printf "  ${color}[%s] %s | %s | %s${NC}\n" "$ts" "$mode" "$decision" "$reason"
         else
-            echo "$line"
+            echo "  $line"
         fi
     done
 }
@@ -620,7 +720,7 @@ cmd_health() {
     if [[ -x "$SCRIPT_DIR/sentry-status.sh" ]]; then
         "$SCRIPT_DIR/sentry-status.sh" --health
     else
-        echo "sentry-status.sh not found or not executable"
+        _error "sentry-status.sh not found or not executable"
         return 1
     fi
 }
@@ -630,7 +730,7 @@ cmd_violations() {
     if [[ -x "$SCRIPT_DIR/sentry-status.sh" ]]; then
         "$SCRIPT_DIR/sentry-status.sh" --violations
     else
-        echo "sentry-status.sh not found or not executable"
+        _error "sentry-status.sh not found or not executable"
         return 1
     fi
 }
@@ -640,7 +740,7 @@ cmd_selfguard() {
     local subcmd="${1:-status}"
 
     if [[ ! -x "$SCRIPT_DIR/sentry-selfguard.sh" ]]; then
-        echo "sentry-selfguard.sh not found or not executable"
+        _error "sentry-selfguard.sh not found or not executable"
         return 1
     fi
 
@@ -655,16 +755,17 @@ cmd_selfguard() {
             "$SCRIPT_DIR/sentry-selfguard.sh" verify
             ;;
         start|monitor)
-            echo "Starting selfguard monitor... (use Ctrl-C to stop)"
+            echo -e "${BOLD}Starting selfguard monitor...${NC} ${DIM}(Ctrl-C to stop)${NC}"
             "$SCRIPT_DIR/sentry-selfguard.sh" start
             ;;
         *)
-            echo "Usage: sentryctl selfguard [status|baseline|verify|start]"
+            _header "Selfguard — Self-Protection" "$BLUE"
+            echo -e "${BOLD}Usage:${NC} sentryctl selfguard ${DIM}<subcommand>${NC}"
             echo ""
-            echo "  status   - Show selfguard health and recent events"
-            echo "  baseline - Compute SHA-256 checksums of protected files"
-            echo "  verify   - One-shot integrity check against baseline"
-            echo "  start    - Launch fswatch self-protection monitor"
+            echo -e "  ${CYAN}status${NC}     Show selfguard health and recent events"
+            echo -e "  ${CYAN}baseline${NC}   Compute SHA-256 checksums of protected files"
+            echo -e "  ${CYAN}verify${NC}     One-shot integrity check against baseline"
+            echo -e "  ${CYAN}start${NC}      Launch fswatch self-protection monitor"
             ;;
     esac
 }
@@ -673,16 +774,23 @@ cmd_selfguard() {
 cmd_rotate() {
     if [[ -f "$SCRIPT_DIR/sentry-logger.sh" ]]; then
         source "$SCRIPT_DIR/sentry-logger.sh"
-        echo "Rotating all Sentry log files..."
+        _header "Log Rotation" "$BLUE"
+        echo -e "  Rotating all Sentry log files..."
         rotate_all_logs
-        echo "Done."
+        _success "Done."
         echo ""
-        echo "Current log stats:"
+        _header "Current Log Stats" "$CYAN"
         get_log_stats "$SENTRY_AUDIT_LOG" | (command -v jq >/dev/null 2>&1 && jq . || cat)
     else
-        echo "sentry-logger.sh not found"
+        _error "sentry-logger.sh not found"
         return 1
     fi
+}
+
+# === Version command ===
+cmd_version() {
+    echo -e "${BOLD}sentryctl${NC} v${SENTRY_VERSION}"
+    echo -e "${DIM}Agentic Sandbox Sentry${NC}"
 }
 
 # Main command router
@@ -744,8 +852,19 @@ case "${1:-dashboard}" in
         shift
         cmd_selfguard "$@"
         ;;
+    tui)
+        if [[ -x "$SCRIPT_DIR/sentry-tui.sh" ]]; then
+            exec "$SCRIPT_DIR/sentry-tui.sh" "$@"
+        else
+            _error "sentry-tui.sh not found or not executable"
+            return 1
+        fi
+        ;;
     rotate|log-rotate)
         cmd_rotate
+        ;;
+    version|--version|-V)
+        cmd_version
         ;;
     tail)
         shift
@@ -755,9 +874,9 @@ case "${1:-dashboard}" in
         usage
         ;;
     *)
-        echo "Unknown command: $1"
+        _error "Unknown command: $1"
         echo ""
-        usage
+        _hint "Run 'sentryctl help' for a list of commands."
         exit 1
         ;;
 esac
