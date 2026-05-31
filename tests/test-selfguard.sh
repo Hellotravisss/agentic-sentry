@@ -73,7 +73,11 @@ run_test "metahash file references meta filename" test_metahash_file_has_meta_ha
 
 test_baseline_permissions() {
     local perms
-    perms=$(stat -f "%Lp" "$BASELINE_FILE" 2>/dev/null || stat -c "%a" "$BASELINE_FILE" 2>/dev/null)
+    if stat -c "%a" "$BASELINE_FILE" >/dev/null 2>&1; then
+        perms=$(stat -c "%a" "$BASELINE_FILE")
+    else
+        perms=$(stat -f "%Lp" "$BASELINE_FILE" 2>/dev/null)
+    fi
     [[ "$perms" == "600" || "$perms" == "400" ]]
 }
 run_test "baseline file has restrictive permissions" test_baseline_permissions

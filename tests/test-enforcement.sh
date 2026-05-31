@@ -81,7 +81,11 @@ fi
 
 _T_CURRENT_TEST="generate_restore_code file has restricted perms"
 code=$(generate_restore_code 2>/dev/null)
-perms=$(stat -f "%Lp" "$RESTORE_CODE_FILE" 2>/dev/null || stat -c "%a" "$RESTORE_CODE_FILE" 2>/dev/null || echo "000")
+if stat -c "%a" "$RESTORE_CODE_FILE" >/dev/null 2>&1; then
+    perms=$(stat -c "%a" "$RESTORE_CODE_FILE")
+else
+    perms=$(stat -f "%Lp" "$RESTORE_CODE_FILE" 2>/dev/null || echo "000")
+fi
 if [[ "$perms" == "600" ]]; then
     _pass
 else
@@ -91,7 +95,11 @@ fi
 _T_CURRENT_TEST="generate_restore_code parent directory has restricted perms"
 code=$(generate_restore_code 2>/dev/null)
 restore_dir=$(dirname "$RESTORE_CODE_FILE")
-dir_perms=$(stat -f "%Lp" "$restore_dir" 2>/dev/null || stat -c "%a" "$restore_dir" 2>/dev/null || echo "000")
+if stat -c "%a" "$restore_dir" >/dev/null 2>&1; then
+    dir_perms=$(stat -c "%a" "$restore_dir")
+else
+    dir_perms=$(stat -f "%Lp" "$restore_dir" 2>/dev/null || echo "000")
+fi
 if [[ "$dir_perms" == "700" ]]; then
     _pass
 else

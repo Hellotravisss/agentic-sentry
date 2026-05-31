@@ -124,7 +124,11 @@ _acquire_log_lock() {
             if [[ -n "$holder_pid" ]] && ! kill -0 "$holder_pid" 2>/dev/null; then
                 # Holder process is dead — check lock age before reclaiming
                 local lock_mtime now lock_age
-                lock_mtime=$(stat -f %m "$lock_dir" 2>/dev/null || stat -c %Y "$lock_dir" 2>/dev/null || echo 0)
+                if stat -c %Y "$lock_dir" >/dev/null 2>&1; then
+                    lock_mtime=$(stat -c %Y "$lock_dir")
+                else
+                    lock_mtime=$(stat -f %m "$lock_dir" 2>/dev/null || echo 0)
+                fi
                 now=$(date +%s)
                 lock_age=$(( now - lock_mtime ))
                 if (( lock_age >= stale_age )); then
@@ -135,7 +139,11 @@ _acquire_log_lock() {
         else
             # Lock dir exists but no PID file — possibly from old code or crash
             local lock_mtime now lock_age
-            lock_mtime=$(stat -f %m "$lock_dir" 2>/dev/null || stat -c %Y "$lock_dir" 2>/dev/null || echo 0)
+            if stat -c %Y "$lock_dir" >/dev/null 2>&1; then
+                lock_mtime=$(stat -c %Y "$lock_dir")
+            else
+                lock_mtime=$(stat -f %m "$lock_dir" 2>/dev/null || echo 0)
+            fi
             now=$(date +%s)
             lock_age=$(( now - lock_mtime ))
             if (( lock_age >= stale_age )); then

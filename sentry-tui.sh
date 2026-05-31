@@ -294,7 +294,11 @@ _check_log_changed() {
     fi
     local current_lines current_mtime
     current_lines=$(wc -l < "$AUDIT_LOG" 2>/dev/null | tr -d ' ' || echo 0)
-    current_mtime=$(stat -f %m "$AUDIT_LOG" 2>/dev/null || stat -c %Y "$AUDIT_LOG" 2>/dev/null || echo 0)
+    if stat -c %Y "$AUDIT_LOG" >/dev/null 2>&1; then
+        current_mtime=$(stat -c %Y "$AUDIT_LOG")
+    else
+        current_mtime=$(stat -f %m "$AUDIT_LOG" 2>/dev/null || echo 0)
+    fi
 
     if [[ "$current_lines" != "$_last_log_lines" || "$current_mtime" != "$_last_log_mtime" ]]; then
         _last_log_lines="$current_lines"
