@@ -44,6 +44,19 @@ CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // "/"' 2>/dev/null) || CWD="/"
 source "$PROJECT_DIR/sentry-check.sh"
 
 if ! sentry_check_command "$CMD" "$CWD"; then
+    # Safe: invisible, except the non-blocking retry-loop signal (T9)
+    if [[ -f "$PROJECT_DIR/sentry-rate.sh" ]]; then
+        # shellcheck source=/dev/null
+        source "$PROJECT_DIR/sentry-rate.sh" 2>/dev/null || true
+        if command -v sentry_rate_check >/dev/null 2>&1 && sentry_rate_check "$CMD"; then
+            # shellcheck source=/dev/null
+            source "$PROJECT_DIR/sentry-logger.sh" >/dev/null 2>&1 || true
+            if command -v sentry_log >/dev/null 2>&1; then
+                safe_cmd=$(printf '%s' "$CMD" | head -c 300 | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\n\t')
+                sentry_log "RATE_REPEAT" "$SENTRY_RATE_REASON" "codex-hook" "{\"cmd\":\"$safe_cmd\",\"cwd\":\"$CWD\"}" 2>/dev/null || true
+            fi
+        fi
+    fi
     exit 0
 fi
 REASON="$SENTRY_CHECK_REASON"

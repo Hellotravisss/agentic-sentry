@@ -48,6 +48,7 @@ Each line is JSON with `ts`, `decision`, `reason`, `cmd`, `cwd`, `mode`. Decisio
 | `CLAUDE_HOOK_AUDIT` | Detected but allowed (audit mode) |
 | `SOFT_BLOCKED` / `HARD_ENFORCEMENT` | Blocked at the zsh shell layer |
 | `DETECTED` / `DRY_RUN` | Logged by the shell hook without blocking |
+| `RATE_REPEAT` | Same command repeated past the threshold (default 8x/10min) — possible agent retry loop burning budget; never blocked |
 
 ## How to report
 

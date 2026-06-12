@@ -22,9 +22,5 @@
     "ifconfig",
     "pfctl",
     "curl .*\\|.*(bash|sh|zsh)"
-  ],
-  "trusted_hashes": {
-    "/usr/bin/git": "example-sha256-here",
-    "/opt/homebrew/bin/fswatch": "example-sha256-here"
-  }
+  ]
 }

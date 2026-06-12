@@ -34,7 +34,11 @@ sentry_check_command() {
         ' 2>/dev/null) || reason=""
 
     if [[ -n "$reason" ]]; then
-        SENTRY_CHECK_REASON="$reason"
+        # Defense in depth: keep only the verdict line — zsh quirks (e.g.
+        # 'local' re-declaration printing values) must never leak extra
+        # stdout into the reason that adapters show to users.
+        SENTRY_CHECK_REASON=$(printf '%s\n' "$reason" | grep '^BLOCKED' | head -1)
+        [[ -z "$SENTRY_CHECK_REASON" ]] && SENTRY_CHECK_REASON="$reason"
         return 0
     fi
     return 1

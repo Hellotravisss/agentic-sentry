@@ -129,7 +129,7 @@ fresh or stale. Mitigations live outside Sentry: short-lived credentials, separa
 profiles per environment, and explicit re-authentication steps in agent workflows.
 Documented here so users do not assume Sentry covers it.
 
-### T9. Unbounded retries and budget burn — Documented
+### T9. Unbounded retries and budget burn — Observed
 
 *Credit: @Keesan12 in #5.*
 
@@ -137,9 +137,11 @@ An agent loops on a failing step — retrying an API call, re-running a test sui
 re-fetching a page — consuming API budget and tool quota without producing new
 evidence. No single command is dangerous, so per-command rules never fire.
 
-Coverage: the audit log is the mitigation today: `sentryctl stats` makes high-frequency
-repetition visible after the fact. A rate-based rule ("same command ≥ N times in M
-minutes → warn") would fit Sentry's architecture and is tracked as future work.
+Coverage: a sliding-window rate rule (`sentry-rate.sh`) watches for the same command
+repeating (default: 8× within 10 minutes) across the zsh hook and all agent adapters,
+and logs a `RATE_REPEAT` event at the crossing — visible in `sentryctl logs` and the
+audit skill. It is deliberately signal-only: re-running tests is a normal workflow, so
+repetition never blocks. Tune with `SENTRY_RATE_THRESHOLD` / `SENTRY_RATE_WINDOW`.
 
 ### T10. Credential-bearing debug artifacts — Partially enforced
 
@@ -166,7 +168,7 @@ gitignore them, and treat any agent-produced artifact as sensitive by default.
 | T6 | Orphaned background processes | — | — | wrapper block only | freeze | Observed |
 | T7 | Guard tampering | log | log | selfguard | selfguard+enforce | Enforced |
 | T8 | Stale session/credential reuse | — | — | — | — | Documented |
-| T9 | Unbounded retries / budget burn | log volume | log volume | — | — | Documented |
+| T9 | Unbounded retries / budget burn | rate-rule log | rate-rule log | rate-rule log | rate-rule log | Observed |
 | T10 | Credential-bearing artifacts | fswatch | fswatch | partial | partial | Partial |
 
 ## What this model deliberately excludes

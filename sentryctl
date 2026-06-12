@@ -603,22 +603,23 @@ cmd_test() {
     echo -e "  ${BOLD}Testing:${NC} ${YELLOW}$test_cmd${NC}"
     echo ""
 
-    # Source the hooks logic if possible (best effort)
-    if [[ -f "$SCRIPT_DIR/sandbox-hooks.zsh" ]]; then
-        echo -e "  ${DIM}(Heuristic test — full evaluation happens inside zsh)${NC}"
-        echo ""
-
-        if [[ "$test_cmd" =~ (rm[[:space:]]+-rf?|sudo[[:space:]]|curl.*\|.*(bash|sh)) ]]; then
-            _badge "DANGEROUS — would likely be blocked" "fail"
-        else
-            _badge "SAFE — would likely be allowed" "ok"
-        fi
+    # Delegate to the real engine (same verdict the hooks and agent
+    # integrations get) instead of a separate heuristic.
+    local verdict_json
+    if verdict_json=$(cmd_check --json -- "$test_cmd" 2>/dev/null); then
+        _badge "SAFE — would be allowed" "ok"
     else
-        _hint "Cannot load full rule engine for test."
+        local reason=""
+        if command -v jq >/dev/null 2>&1; then
+            reason=$(echo "$verdict_json" | jq -r '.reason // ""' 2>/dev/null || echo "")
+        fi
+        _badge "DANGEROUS — would be flagged" "fail"
+        [[ -n "$reason" ]] && echo -e "  ${DIM}Reason: ${reason}${NC}"
     fi
 
     echo ""
-    _hint "For accurate result, run the command in your actual shell with Sentry hooks loaded."
+    _hint "Verdict from the full detection engine (same as hooks and agent integrations)."
+    _hint "What happens next depends on your mode: $(get_sentry_mode 2>/dev/null || echo soft-block) — see 'sentryctl mode'."
 }
 
 _demo_decision_for_command() {

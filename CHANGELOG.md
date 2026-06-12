@@ -2,6 +2,24 @@
 
 All notable changes to Agentic Sandbox Sentry are documented here.
 
+## Unreleased
+
+### Added
+
+- Added retry-loop detection (threat model T9): `sentry-rate.sh` tracks command repetition in a sliding window (default 8x in 10 minutes) across the zsh hook and all agent adapters, logging a single `RATE_REPEAT` event at the crossing. Signal-only — repetition never blocks. Tune with `SENTRY_RATE_THRESHOLD` / `SENTRY_RATE_WINDOW`.
+
+### Changed
+
+- `sentryctl test` now delegates to the real detection engine via `sentryctl check`, so its verdict always matches what the hooks and agent integrations enforce (it previously used a separate, cruder heuristic).
+
+### Removed
+
+- Removed the no-op `check_hash_allowlist` stub from the zsh hook and the placeholder `trusted_hashes` field from `safety-rules.json` — they computed hashes but never enforced anything, implying a verification that did not exist.
+
+### Fixed
+
+- Fixed reason-string pollution for `rm`/`rmdir` detections: re-declaring `local` inside a zsh loop prints the variable value, which leaked `real_allowed=...` lines into the reasons shown by hooks and adapters. The shared checker also now filters reasons defensively.
+
 ## v0.1.5 - 2026-06-12
 
 ### Added

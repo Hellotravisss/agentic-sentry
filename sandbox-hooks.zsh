@@ -97,9 +97,12 @@ is_path_in_allowed_project() {
     local real_target
     real_target=$(realpath "$target" 2>/dev/null || echo "$target")
 
+    # NOTE: declared OUTSIDE the loop — re-running 'local x' on a set
+    # variable inside a zsh loop PRINTS "x=value" to stdout, polluting
+    # the reason string this function's callers capture.
+    local real_allowed
     while IFS= read -r allowed || [[ -n "$allowed" ]]; do
         [[ -z "$allowed" ]] && continue
-        local real_allowed
         real_allowed=$(realpath "$allowed" 2>/dev/null || echo "$allowed")
         if [[ "$real_target" == "$real_allowed"* ]]; then
             return 0   # safe
@@ -107,26 +110,6 @@ is_path_in_allowed_project() {
     done < <(get_allowed_dirs)
 
     return 1   # outside all allowed projects → treat as dangerous
-}
-
-# Hash verification for trusted binaries (P4 lightweight)
-check_hash_allowlist() {
-    local cmd="$1"
-    local bin
-    bin=$(echo "$cmd" | awk '{print $1}')
-    [[ ! -f "$bin" ]] && return 0
-    if command -v sha256sum >/dev/null || command -v shasum >/dev/null; then
-        local hash
-        if command -v shasum >/dev/null; then
-            hash=$(shasum -a 256 "$bin" 2>/dev/null | awk '{print $1}')
-        else
-            hash=$(sha256sum "$bin" 2>/dev/null | awk '{print $1}')
-        fi
-        # For now, simple: if rules had hashes we could check, but fallback allow common safe
-        # Extend later if needed; physical block still happens on mismatch rule
-        return 0
-    fi
-    return 0
 }
 
 # Detect dangerous command using rules (improved target extraction for spaces/quotes)
@@ -211,16 +194,24 @@ is_dangerous() {
         fi
     fi
 
-    # Hash allowlist check (P4) - if fails would block but current impl allows
-    check_hash_allowlist "$cmd"
-
     return 1
 }
+
+# Repetition (retry-loop) detection — signal only, never blocks (T9)
+if [[ -f "$SCRIPT_DIR/sentry-rate.sh" ]]; then
+    source "$SCRIPT_DIR/sentry-rate.sh" 2>/dev/null || true
+fi
 
 # Preexec hook - mode-aware behavior (core of Route C)
 preexec() {
     local cmd="$1"
     local cwd="$PWD"
+
+    # Retry-loop signal: log + notify once per window, command always runs
+    if command -v sentry_rate_check >/dev/null 2>&1 && sentry_rate_check "$cmd"; then
+        log_sentry_event "RATE_REPEAT" "$SENTRY_RATE_REASON" "$cmd" "$cwd"
+        send_notification "Sentry (Repeat)" "$SENTRY_RATE_REASON"
+    fi
 
     if ! is_dangerous "$cmd" "$cwd"; then
         return 0
