@@ -2,7 +2,7 @@
 
 All notable changes to Agentic Sandbox Sentry are documented here.
 
-## Unreleased
+## v0.1.5 - 2026-06-12
 
 ### Added
 
