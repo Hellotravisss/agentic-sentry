@@ -128,7 +128,7 @@ _acquire_log_lock() {
         # Atomic mkdir — only succeeds if dir doesn't exist
         if mkdir "$lock_dir" 2>/dev/null; then
             # Lock acquired — write our PID for stale detection
-            echo "$$" > "$lock_dir/pid" 2>/dev/null || true
+            { echo "$$" > "$lock_dir/pid"; } 2>/dev/null || true
             return 0
         fi
 
@@ -140,6 +140,13 @@ _acquire_log_lock() {
                 # Holder process is dead — check lock age before reclaiming
                 local lock_mtime now lock_age
                 lock_mtime=$(_get_file_mtime "$lock_dir")
+                if (( lock_mtime == 0 )); then
+                    # Lock dir vanished between checks — it was released
+                    # normally. NEVER rm -rf here: another writer may have
+                    # already re-acquired it, and deleting a live lock breaks
+                    # mutual exclusion. Just retry mkdir.
+                    continue
+                fi
                 now=$(date +%s)
                 lock_age=$(( now - lock_mtime ))
                 if (( lock_age >= stale_age )); then
@@ -148,9 +155,15 @@ _acquire_log_lock() {
                 fi
             fi
         else
-            # Lock dir exists but no PID file — possibly from old code or crash
+            # Lock dir exists but no PID file — holder is mid-acquire,
+            # mid-release, or crashed before writing its PID
             local lock_mtime now lock_age
             lock_mtime=$(_get_file_mtime "$lock_dir")
+            if (( lock_mtime == 0 )); then
+                # Same as above: the lock disappeared on its own — a fresh
+                # lock created by a competitor right now must not be deleted
+                continue
+            fi
             now=$(date +%s)
             lock_age=$(( now - lock_mtime ))
             if (( lock_age >= stale_age )); then
