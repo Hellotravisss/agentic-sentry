@@ -154,7 +154,10 @@ is_dangerous() {
     fi
 
     # curl | bash
-    if [[ "$cmd" =~ curl.*\|.*(bash|sh|zsh) ]]; then
+    # Note: requires a literal pipe between curl and the shell. The old
+    # pattern used \| which zsh ERE treats as alternation, flagging EVERY
+    # curl command (false positive) — see tests/test-hooks.sh.
+    if [[ "$cmd" == *curl*"|"* ]] && [[ "$cmd" =~ "[|][[:space:]]*([^ ]*/)?(ba|z)?sh" ]]; then
         echo "BLOCKED: curl pipe to shell"
         return 0
     fi
@@ -170,7 +173,10 @@ is_dangerous() {
     if [[ "$cmd" =~ (zsh|bash|sh)[[:space:]]+-c[[:space:]] ]]; then
         local inner
         inner=$(echo "$cmd" | sed -E 's/.*-c[[:space:]]+['\''"]?([^'\''"]+).*/\1/I')
-        if [[ "$inner" =~ (rm[[:space:]]+-?r|sudo |curl.*\|.*(sh|bash)|networksetup|ifconfig.*down|pfctl) ]]; then
+        # curl|shell handled as a separate glob check: with \| inside the
+        # alternation the regex degraded to .*(sh|bash), blocking any -c
+        # payload containing "sh" (e.g. bash -c "echo fish").
+        if [[ "$inner" =~ (rm[[:space:]]+-?r|sudo |networksetup|ifconfig.*down|pfctl) ]] || [[ "$inner" == *curl*"|"* ]]; then
             echo "BLOCKED: dangerous command inside subshell (-c)"
             return 0
         fi
@@ -186,8 +192,10 @@ is_dangerous() {
 
     # Common TTY/script wrappers used to hide or background commands
     if [[ "$cmd" =~ ^(script|expect|unbuffer|stdbuf|nohup)[[:space:]] ]]; then
-        # Only block if they seem to wrap a dangerous command
-        if [[ "$cmd" =~ (rm -r|sudo |curl .*\|) ]]; then
+        # Only block if they seem to wrap a dangerous command.
+        # The old pattern (rm -r|sudo |curl .*\|) failed to compile in zsh
+        # ("empty (sub)expression"), silently disabling this entire check.
+        if [[ "$cmd" =~ (rm[[:space:]]+-r|sudo[[:space:]]) ]] || [[ "$cmd" == *curl*"|"* ]]; then
             echo "BLOCKED: TTY wrapper around dangerous command (evasion attempt)"
             return 0
         fi
