@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 # Agentic Sandbox Sentry - zsh preexec hook (Audit-First / Route C)
 # Behavior is controlled by SENTRY_MODE in ~/.hermes/sentry-config.json
-# Modes: audit | warn | soft-block (default) | hard
+# Modes: audit | warn | dry-run | soft-block (default) | hard
 
 # Load central configuration (supports both bash and zsh)
 SCRIPT_DIR="${0:A:h}"
@@ -236,6 +236,31 @@ preexec() {
             # Command continues
             ;;
 
+        dry-run)
+            # Block the command (safe default) and show exactly what each
+            # enforcement level would have done — without doing any of it.
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "🧪  [SENTRY DRY-RUN] Command intercepted (nothing enforced)"
+            echo "   Reason : $reason"
+            echo "   Command: $cmd"
+            echo "   CWD    : $cwd"
+            echo ""
+            echo "   In soft-block mode: this command would be blocked."
+            echo "   In hard mode: physical enforcement would also trigger:"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            log_sentry_event "DRY_RUN" "$reason" "$cmd" "$cwd"
+
+            # Ask the enforcement module for its action plan (read-only)
+            if [[ -x "$ENFORCEMENT_SCRIPT" ]]; then
+                SENTRY_DRY_RUN=1 "$ENFORCEMENT_SCRIPT" enforce --dry-run "Dry-run: $reason" 2>/dev/null || true
+            fi
+
+            # Block execution, same as soft-block (safe for new users testing)
+            return 1
+            ;;
+
         soft-block)
             # Best-effort block + strong warning + notification
             echo ""
@@ -296,5 +321,5 @@ precmd() {
 
 echo "✅ Agentic Sandbox Sentry hooks loaded (zsh)"
 echo "   Mode: $SENTRY_MODE   |   Rules: $SAFETY_RULES"
-echo "   Change mode with: sentryctl mode <audit|warn|soft-block|hard>"
+echo "   Change mode with: sentryctl mode <audit|warn|dry-run|soft-block|hard>"
 echo "   Audit log: $AUDIT_LOG"

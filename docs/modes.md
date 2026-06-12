@@ -8,6 +8,7 @@ Agentic Sandbox Sentry is designed to be conservative by default. It separates d
 |---|---:|---:|---:|---:|
 | `audit` | Yes | No | No | No |
 | `warn` | Yes | Yes | No | No |
+| `dry-run` | Yes | Yes | Best effort | No — prints the plan instead |
 | `soft-block` | Yes | Yes | Best effort | No |
 | `hard` | Yes | Yes | Yes | Yes |
 
@@ -45,6 +46,34 @@ Expected behavior:
 - A warning is shown in the terminal.
 - The command is allowed to continue.
 - No physical enforcement is triggered.
+
+## `dry-run`
+
+Dry-run mode is for safely testing detection and enforcement before trusting them.
+It blocks risky commands like `soft-block`, but instead of staying quiet about
+enforcement it prints exactly what `hard` mode would have done — which network
+interfaces would be cut, which firewall anchor would load, and which processes
+would be frozen — without changing anything.
+
+Use this mode when:
+
+- You are new to the tool and want to see enforcement behavior risk-free.
+- You are about to enable `hard` mode and want to preview its blast radius.
+- You are developing or reviewing enforcement logic.
+
+Expected behavior:
+
+- Risky commands are logged with decision `DRY_RUN`.
+- The command is blocked (same as `soft-block`).
+- The full hard-enforcement action plan is printed.
+- No network isolation, firewall change, or process freezing happens.
+
+You can also dry-run the enforcement module directly, without changing modes:
+
+```bash
+./enforcement_recovery_module.sh enforce --dry-run "test reason"
+./enforcement_recovery_module.sh restore --dry-run
+```
 
 ## `soft-block`
 
@@ -108,6 +137,7 @@ Switch modes:
 ```bash
 ./sentryctl mode audit
 ./sentryctl mode warn
+./sentryctl mode dry-run
 ./sentryctl mode soft-block
 ./sentryctl mode hard
 ```
@@ -127,8 +157,9 @@ Demo mode prints example commands, their risk level, and the expected decision i
 1. Run `sentryctl demo` to understand the decision model.
 2. Start with `audit` to understand what would be flagged.
 3. Move to `warn` if the rules look reasonable.
-4. Use `soft-block` for regular day-to-day protection.
-5. Use `hard` only for controlled tests or high-risk agent workflows.
+4. Use `dry-run` to preview enforcement actions before trusting them.
+5. Use `soft-block` for regular day-to-day protection.
+6. Use `hard` only for controlled tests or high-risk agent workflows.
 
 ## Safety note
 

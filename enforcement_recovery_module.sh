@@ -18,6 +18,10 @@ BACKUP_WIFI="/tmp/agentsentry-wifi.backup"
 SUSPENDED_PIDS_FILE="${SUSPENDED_PIDS_FILE:-/tmp/suspended_pids.txt}"
 RESTORE_CODE_FILE="${RESTORE_CODE_FILE:-$SENTRY_HOME/agentsentry-restore.code}"
 
+# Dry-run: print every action without changing network or process state.
+# Enabled by SENTRY_DRY_RUN=1 or the --dry-run flag.
+DRY_RUN="${SENTRY_DRY_RUN:-0}"
+
 # Load unified structured logger
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -f "$SCRIPT_DIR/sentry-logger.sh" ]]; then
@@ -121,6 +125,81 @@ resume_suspended_processes() {
     echo "Resumed $resumed process(es)."
 }
 
+# Shared by enforce and dry-run: figure out which PIDs we would freeze.
+discover_candidate_pids() {
+    local reason="$1"
+    local extra_context="${2:-}"
+    local pids=""
+
+    # If caller passed explicit PIDs (from fswatch/lsof), use them
+    if [[ -n "$extra_context" ]]; then
+        # extra_context may be "path:/foo 1234 5678" or just pids
+        pids=$(echo "$extra_context" | tr ' ' '\n' | grep -E '^[0-9]+$' || true)
+    fi
+
+    # If we have a path hint in the reason or context, try lsof
+    if [[ -z "$pids" && "$reason" =~ (on |path |file |dir )([^ ]+) ]]; then
+        local hinted_path="${BASH_REMATCH[2]}"
+        pids=$(find_processes_touching_path "$hinted_path")
+    fi
+
+    # Always try to freeze recent children of current terminal / PPID (shell hook case)
+    if [[ -z "$pids" ]]; then
+        local parent=${PPID:-$PPID}
+        pids=$(pgrep -P "$parent" 2>/dev/null | head -6 || true)
+        if [[ -n "$parent" ]]; then
+            pids="$pids $parent"
+        fi
+    fi
+
+    echo "$pids"
+}
+
+dry_run_enforce() {
+    local reason="$1"
+    local extra_context="${2:-}"
+    local iface wifi_dev pids
+    iface=$(get_active_interface)
+    wifi_dev=$(get_wifi_device)
+    pids=$(discover_candidate_pids "$reason" "$extra_context" | tr '\n' ' ')
+
+    echo ""
+    echo "======================================================================"
+    echo "🧪  AGENTIC SANDBOX SENTRY — DRY RUN (no changes will be made)"
+    echo "======================================================================"
+    echo "Reason : $reason"
+    echo ""
+    echo "Hard enforcement WOULD perform these actions:"
+    echo "  1. Generate a one-time restore code at: $RESTORE_CODE_FILE"
+    echo "  2. Run: networksetup -setairportpower $wifi_dev off"
+    echo "  3. Run: sudo ifconfig $iface down"
+    echo "  4. Run: sudo pfctl -a agentsentry -f $PF_RULES && sudo pfctl -e"
+    if [[ -n "${pids// /}" ]]; then
+        echo "  5. Freeze candidate processes with kill -STOP:"
+        local pid
+        for pid in $pids; do
+            [[ "$pid" =~ ^[0-9]+$ ]] || continue
+            local comm
+            comm=$(ps -p "$pid" -o comm= 2>/dev/null || echo "?")
+            if echo "$comm" | grep -qE "$(get_process_whitelist)"; then
+                echo "       PID $pid ($comm) — SKIPPED (whitelisted)"
+            else
+                echo "       PID $pid ($comm)"
+            fi
+        done
+    else
+        echo "  5. Freeze candidate processes: none found right now"
+    fi
+    echo ""
+    echo "Recovery would require: $0 restore (+ the one-time restore code)"
+    echo "✅ DRY RUN complete — network and processes were NOT touched."
+    echo "======================================================================"
+
+    if command -v log_enforcement >/dev/null 2>&1; then
+        log_enforcement "DRY_RUN" "$reason" "{\"iface\":\"$iface\"}"
+    fi
+}
+
 # --- End new helpers ---
 
 setup() {
@@ -141,6 +220,12 @@ setup() {
 enforce() {
     local reason="${1:-AI agent violation detected}"
     local extra_context="${2:-}"   # optional: path or space-separated PIDs from caller
+
+    if [[ "$DRY_RUN" == "1" ]]; then
+        dry_run_enforce "$reason" "$extra_context"
+        return 0
+    fi
+
     local iface
     iface=$(get_active_interface)
     local wifi_dev
@@ -185,30 +270,8 @@ enforce() {
     echo ">>> Physical network cut + firewall block activated. <<<"
 
     # 5. Process suspension (NEW - fulfills the original design goal)
-    local pids_to_freeze=""
-
-    # If caller passed explicit PIDs (from fswatch/lsof), use them
-    if [[ -n "$extra_context" ]]; then
-        # extra_context may be "path:/foo 1234 5678" or just pids
-        pids_to_freeze=$(echo "$extra_context" | tr ' ' '\n' | grep -E '^[0-9]+$' || true)
-    fi
-
-    # If we have a path hint in the reason or context, try lsof
-    if [[ -z "$pids_to_freeze" && "$reason" =~ (on |path |file |dir )([^ ]+) ]]; then
-        local hinted_path="${BASH_REMATCH[2]}"
-        pids_to_freeze=$(find_processes_touching_path "$hinted_path")
-    fi
-
-    # Always try to freeze recent children of current terminal / PPID (shell hook case)
-    if [[ -z "$pids_to_freeze" ]]; then
-        # Best effort: recent processes in our process group or children of PPID
-        local parent=${PPID:-$PPID}
-        pids_to_freeze=$(pgrep -P "$parent" 2>/dev/null | head -6 || true)
-        # Also include the immediate shell if it looks like an agent session
-        if [[ -n "$parent" ]]; then
-            pids_to_freeze="$pids_to_freeze $parent"
-        fi
-    fi
+    local pids_to_freeze
+    pids_to_freeze=$(discover_candidate_pids "$reason" "$extra_context")
 
     if [[ -n "$pids_to_freeze" ]]; then
         echo "Attempting to freeze suspicious processes..."
@@ -230,6 +293,22 @@ restore() {
     iface=$(get_active_interface)
     local wifi_dev
     wifi_dev=$(get_wifi_device)
+
+    if [[ "$DRY_RUN" == "1" ]]; then
+        echo ""
+        echo "🧪 DRY RUN — restore would perform these actions (no changes made):"
+        echo "  1. Verify the one-time restore code at: $RESTORE_CODE_FILE"
+        echo "  2. Run: networksetup -setairportpower $wifi_dev on"
+        echo "  3. Run: sudo ifconfig $iface up"
+        echo "  4. Run: sudo pfctl -a agentsentry -F all   (Sentry anchor only)"
+        if [[ -s "$SUSPENDED_PIDS_FILE" ]]; then
+            echo "  5. Resume suspended PIDs with kill -CONT: $(tr '\n' ' ' < "$SUSPENDED_PIDS_FILE")"
+        else
+            echo "  5. Resume suspended PIDs: none recorded"
+        fi
+        echo "  6. Remove the one-time restore code file"
+        return 0
+    fi
 
     echo ""
     echo "======================================================================"
@@ -337,11 +416,22 @@ status() {
 
 # Only execute command when run directly (not when sourced for testing)
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    # Accept --dry-run anywhere in the arguments (same effect as SENTRY_DRY_RUN=1)
+    PARSED_ARGS=()
+    for arg in "$@"; do
+        if [[ "$arg" == "--dry-run" ]]; then
+            DRY_RUN=1
+        else
+            PARSED_ARGS+=("$arg")
+        fi
+    done
+    set -- ${PARSED_ARGS[@]+"${PARSED_ARGS[@]}"}
+
     case "${1:-status}" in
         setup) setup ;;
         enforce) shift; enforce "$@" ;;
         restore) restore ;;
         status) status ;;
-        *) echo "Usage: $0 {setup|enforce [reason] [pids_or_path]|restore|status}"; exit 1 ;;
+        *) echo "Usage: $0 [--dry-run] {setup|enforce [reason] [pids_or_path]|restore|status}"; exit 1 ;;
     esac
 fi

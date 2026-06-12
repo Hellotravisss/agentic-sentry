@@ -10,7 +10,7 @@ SENTRY_CONFIG="${SENTRY_CONFIG:-$SENTRY_HOME/sentry-config.json}"
 SAFETY_RULES="${SAFETY_RULES:-$SENTRY_HOME/safety-rules.json}"
 
 # Default values (used if config file is missing or incomplete)
-DEFAULT_MODE="soft-block"           # audit | warn | soft-block | hard
+DEFAULT_MODE="soft-block"           # audit | warn | dry-run | soft-block | hard
 DEFAULT_NOTIFICATIONS="true"
 # Prefer persistent location under ~/.hermes/logs for durability (Route C audit focus)
 DEFAULT_AUDIT_LOG="$SENTRY_HOME/logs/sandbox-audit.log"
@@ -50,12 +50,12 @@ should_send_notifications() {
     [[ "$SENTRY_NOTIFICATIONS" == "true" ]]
 }
 
-# Check if we should attempt to block commands (soft-block or hard)
+# Check if we should attempt to block commands (dry-run, soft-block or hard)
 should_attempt_block() {
     local mode
     mode=$(get_sentry_mode)
     case "$mode" in
-        soft-block|hard) return 0 ;;
+        dry-run|soft-block|hard) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -75,7 +75,7 @@ print_sentry_config() {
     echo "Safety rules:      $SAFETY_RULES"
     echo "Config file:       $SENTRY_CONFIG"
     echo ""
-    echo "Available modes: audit | warn | soft-block | hard"
+    echo "Available modes: audit | warn | dry-run | soft-block | hard"
 }
 
 # Ensure the config file exists with good defaults (idempotent)
@@ -102,7 +102,7 @@ EOF
 set_sentry_mode() {
     local new_mode="$1"
     case "$new_mode" in
-        audit|warn|soft-block|hard)
+        audit|warn|dry-run|soft-block|hard)
             ensure_sentry_config
             # Use jq if available for clean edit, otherwise fall back
             if command -v jq >/dev/null 2>&1; then
@@ -117,7 +117,7 @@ set_sentry_mode() {
             ;;
         *)
             echo "Invalid mode: $new_mode"
-            echo "Valid modes: audit | warn | soft-block | hard"
+            echo "Valid modes: audit | warn | dry-run | soft-block | hard"
             return 1
             ;;
     esac

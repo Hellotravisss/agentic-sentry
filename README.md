@@ -26,6 +26,7 @@ Agentic Sandbox Sentry acts as a **runtime safety layer and emergency brake**. I
 
 - **Command-level runtime detection** — zsh preexec hooks + fswatch event monitoring
 - **Safe demo mode** — preview how risky commands would be handled without executing them
+- **Dry-run mode** — `sentryctl mode dry-run` blocks risky commands and prints exactly what hard enforcement *would* have done, without touching network or processes
 - **Configurable physical enforcement** — hard mode can disable network + freeze processes
 - **Zero LLM dependency** in the hot path — pure local rules
 - **Self-protection** — monitors its own files and baseline integrity with meta-hash verification

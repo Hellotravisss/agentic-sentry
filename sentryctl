@@ -165,7 +165,7 @@ usage() {
 
     echo -e "${BOLD}Configuration:${NC}"
     echo -e "  ${CYAN}mode${NC} ${DIM}[name]${NC}      Show or switch protection mode"
-    echo -e "                   ${DIM}audit | warn | soft-block | hard${NC}"
+    echo -e "                   ${DIM}audit | warn | dry-run | soft-block | hard${NC}"
     echo -e "  ${CYAN}config${NC}           Show full effective configuration"
     echo -e "  ${CYAN}allow-dir${NC} ${DIM}<path>${NC}  Add a directory to allowed project dirs"
     echo -e "  ${CYAN}notifications${NC}    ${DIM}[on|off]${NC}  Enable/disable macOS notifications"
@@ -258,6 +258,7 @@ cmd_mode() {
         echo -e "  ${BOLD}Available modes:${NC}"
         echo -e "    ${CYAN}audit${NC}        Only log and notify ${DIM}(maximum compatibility)${NC}"
         echo -e "    ${CYAN}warn${NC}         Log + big warning, command still runs"
+        echo -e "    ${CYAN}dry-run${NC}      Block + print what enforcement WOULD do ${DIM}(great for testing)${NC}"
         echo -e "    ${CYAN}soft-block${NC}   Try to block dangerous commands ${DIM}(recommended)${NC}"
         echo -e "    ${CYAN}hard${NC}         Full physical enforcement ${RED}(use with caution)${NC}"
         echo ""
