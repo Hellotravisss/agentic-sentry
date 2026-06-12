@@ -1,0 +1,9 @@
+{
+  "id": "sentry-guard",
+  "name": "Agentic Sandbox Sentry Guard",
+  "version": "0.1.0",
+  "description": "Screens exec/shell tool calls with Agentic Sandbox Sentry before they run on the host. Blocks in soft-block/hard mode, requests operator approval in warn/dry-run mode, audits in audit mode.",
+  "entry": "index.ts",
+  "homepage": "https://github.com/Hellotravisss/agentic-sandbox-sentry",
+  "license": "MIT"
+}
