@@ -24,6 +24,7 @@ Agentic Sandbox Sentry acts as a **runtime safety layer and emergency brake**. I
 
 ## Core Features
 
+- **Claude Code integration** — official PreToolUse hook evaluates every agent Bash command before it runs ([docs](docs/claude-code-integration.md))
 - **Command-level runtime detection** — zsh preexec hooks + fswatch event monitoring
 - **Safe demo mode** — preview how risky commands would be handled without executing them
 - **Dry-run mode** — `sentryctl mode dry-run` blocks risky commands and prints exactly what hard enforcement *would* have done, without touching network or processes
@@ -94,6 +95,7 @@ sentryctl selfguard status
 
 ## Documentation
 
+- [Claude Code integration](docs/claude-code-integration.md) — run Sentry as a PreToolUse hook that screens every agent Bash command.
 - [Operating modes](docs/modes.md) — explains `audit`, `warn`, `soft-block`, and `hard` behavior.
 - [Threat model](docs/threat-model.md) — concrete agent failure scenarios and which ones Sentry covers.
 - [Recovery guide](docs/recovery.md) — explains how to restore network/process state after hard enforcement.
