@@ -18,6 +18,8 @@ All notable changes to Agentic Sandbox Sentry are documented here.
 - Fixed a false positive where every `curl` command without a pipe was flagged as `curl | shell` (zsh ERE treated `\|` as alternation).
 - Fixed a false positive where `bash -c` payloads containing the substring `sh` (for example `bash -c "echo fish"`) were blocked.
 - Fixed TTY-wrapper detection (`nohup`, `script`, `expect`) which never matched because its pattern failed to compile in zsh — wrapped dangerous commands such as `nohup rm -rf` are now detected.
+- Fixed a logger lock race where stale-lock reclaim could delete a lock another writer had just acquired, breaking mutual exclusion under concurrency.
+- Fixed `_get_file_mtime` emitting empty or non-numeric output when the lock directory vanished mid-check (or via the GNU `stat -f` filesystem-mode fallback), which killed concurrent log writers under `set -eu` and dropped audit lines on Linux.
 
 ## v0.1.3 - 2026-05-31
 
