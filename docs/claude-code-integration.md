@@ -52,6 +52,23 @@ with a reason; in `warn` mode you get a permission prompt.
 ./integrations/claude-code/install-claude-hook.sh --uninstall
 ```
 
+## Companion skill: sentry-audit
+
+The hook blocks; the skill explains. `sentry-audit` teaches Claude how to read
+Sentry's audit records back to you — ask things like *"what has the agent tried to do
+recently?"* or *"why was that command blocked?"* and Claude will use `sentryctl
+stats`/`violations`/`logs`, group repeated attempts (retry-loop detection, threat
+model T9), and translate rule jargon into plain language. It is read-only by design:
+the skill never changes modes, rules, or hooks unless you explicitly ask.
+
+```bash
+./integrations/claude-code/install-claude-skill.sh             # install
+./integrations/claude-code/install-claude-skill.sh --uninstall # remove
+```
+
+Installed to `~/.claude/skills/sentry-audit/` with the repo path baked in, so it works
+from any project. Like hooks, skills load at session start.
+
 ## Design notes
 
 - **Fail-safe means defer, not approve.** On any internal error (missing `jq`/`zsh`,

@@ -7,6 +7,7 @@ All notable changes to Agentic Sandbox Sentry are documented here.
 ### Added
 
 - Added Claude Code integration: a PreToolUse hook (`integrations/claude-code/`) that evaluates every agent Bash command with Sentry's detection engine before execution, mapping Sentry modes to allow/ask/deny decisions. Includes an idempotent installer for `~/.claude/settings.json` and full test coverage.
+- Added `sentry-audit` Claude Code skill: teaches Claude to read Sentry's audit records — summarize detections, group retry loops, explain denials in plain language — without ever reconfiguring the guard. Installed via `install-claude-skill.sh`.
 
 ## v0.1.4 - 2026-06-12
 
