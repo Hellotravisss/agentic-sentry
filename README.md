@@ -24,7 +24,7 @@ Agentic Sandbox Sentry acts as a **runtime safety layer and emergency brake**. I
 
 ## Core Features
 
-- **Claude Code integration** — official PreToolUse hook screens every agent Bash command before it runs, plus a `sentry-audit` skill so Claude can explain what was blocked and why ([docs](docs/claude-code-integration.md))
+- **Multi-agent integrations** — official hook adapters for Claude Code (PreToolUse + `sentry-audit` skill), OpenAI Codex CLI (PermissionRequest), and OpenClaw (`before_tool_call` plugin), all driven by one `sentryctl check` engine ([docs](docs/integrations.md))
 - **Command-level runtime detection** — zsh preexec hooks + fswatch event monitoring
 - **Safe demo mode** — preview how risky commands would be handled without executing them
 - **Dry-run mode** — `sentryctl mode dry-run` blocks risky commands and prints exactly what hard enforcement *would* have done, without touching network or processes
@@ -95,6 +95,7 @@ sentryctl selfguard status
 
 ## Documentation
 
+- [Agent integrations](docs/integrations.md) — status matrix and adapters for Claude Code, Codex CLI, OpenClaw, and Hermes Agent; how to write your own.
 - [Claude Code integration](docs/claude-code-integration.md) — run Sentry as a PreToolUse hook that screens every agent Bash command.
 - [Operating modes](docs/modes.md) — explains `audit`, `warn`, `soft-block`, and `hard` behavior.
 - [Threat model](docs/threat-model.md) — concrete agent failure scenarios and which ones Sentry covers.

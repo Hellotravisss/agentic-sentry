@@ -8,6 +8,10 @@ All notable changes to Agentic Sandbox Sentry are documented here.
 
 - Added Claude Code integration: a PreToolUse hook (`integrations/claude-code/`) that evaluates every agent Bash command with Sentry's detection engine before execution, mapping Sentry modes to allow/ask/deny decisions. Includes an idempotent installer for `~/.claude/settings.json` and full test coverage.
 - Added `sentry-audit` Claude Code skill: teaches Claude to read Sentry's audit records — summarize detections, group retry loops, explain denials in plain language — without ever reconfiguring the guard. Installed via `install-claude-skill.sh`.
+- Added `sentryctl check`: agent-agnostic machine-readable verdict command (`--json`, `--log`, exit 1 = dangerous) backing all platform adapters via the new shared `sentry-check.sh`.
+- Added OpenAI Codex CLI adapter (`integrations/codex/`): PermissionRequest hook with hooks.json installer; soft-block/hard deny, other modes defer to Codex's own approval prompt with an audit-log entry.
+- Added experimental OpenClaw plugin (`integrations/openclaw/sentry-guard`): `before_tool_call` handler mapping Sentry modes to block / requireApproval / logged passthrough.
+- Added `docs/integrations.md`: per-platform status matrix, decision mapping, Hermes Agent cooperation guide, and a recipe for writing new adapters.
 
 ## v0.1.4 - 2026-06-12
 
