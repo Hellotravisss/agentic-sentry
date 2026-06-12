@@ -4,6 +4,33 @@ This guide explains how to inspect and recover from Agentic Sandbox Sentry enfor
 
 Read this before enabling `hard` mode.
 
+## Quick recovery (60 seconds)
+
+If enforcement just triggered and you want everything back:
+
+```bash
+./sentryctl restore        # full recovery: network + processes (asks for the restore code)
+```
+
+If only your processes are frozen (or you want them back before dealing with the network):
+
+```bash
+./sentryctl unfreeze       # resume frozen processes only — no restore code needed
+```
+
+Not sure what state you are in?
+
+```bash
+./sentryctl status
+./enforcement_recovery_module.sh status
+```
+
+Want to preview what restore would do before running it?
+
+```bash
+./enforcement_recovery_module.sh restore --dry-run
+```
+
 ## What may happen during hard enforcement
 
 When hard enforcement is triggered, Sentry may:
@@ -60,6 +87,18 @@ Permissions should be:
 ```bash
 chmod 700 ~/.hermes
 chmod 600 ~/.hermes/agentsentry-restore.code
+```
+
+## Resume frozen processes without touching the network
+
+`unfreeze` resumes only the processes Sentry itself recorded as suspended. It never
+changes network state, so it does not require the restore code — it is the fast,
+low-stakes first step when a work process got frozen:
+
+```bash
+./sentryctl unfreeze            # interactive confirmation
+./sentryctl unfreeze --yes      # non-interactive (for scripts)
+./enforcement_recovery_module.sh unfreeze --dry-run   # just show what would resume
 ```
 
 ## Manual recovery: resume frozen processes

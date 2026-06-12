@@ -171,6 +171,11 @@ usage() {
     echo -e "  ${CYAN}notifications${NC}    ${DIM}[on|off]${NC}  Enable/disable macOS notifications"
     echo ""
 
+    echo -e "${BOLD}Recovery:${NC}"
+    echo -e "  ${CYAN}restore${NC}          Restore network + resume frozen processes ${DIM}(needs restore code)${NC}"
+    echo -e "  ${CYAN}unfreeze${NC} ${DIM}[--yes]${NC}  Resume frozen processes only ${DIM}(network untouched, no code needed)${NC}"
+    echo ""
+
     echo -e "${BOLD}Utilities:${NC}"
     echo -e "  ${CYAN}test${NC} ${DIM}<command>${NC}    Quick heuristic test of a command"
     echo -e "  ${CYAN}demo${NC}             Safe walkthrough of detection modes and example decisions"
@@ -990,6 +995,14 @@ case "${1:-dashboard}" in
             _error "sentry-tui not found. Build with: cd tui && go build -o ../sentry-tui ."
             return 1
         fi
+        ;;
+    restore)
+        shift
+        exec "$SCRIPT_DIR/enforcement_recovery_module.sh" restore "$@"
+        ;;
+    unfreeze)
+        shift
+        exec "$SCRIPT_DIR/enforcement_recovery_module.sh" unfreeze "$@"
         ;;
     rotate|log-rotate)
         cmd_rotate

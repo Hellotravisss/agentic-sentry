@@ -110,6 +110,58 @@ fi
 kill "$VICTIM_PID" 2>/dev/null || true
 wait "$VICTIM_PID" 2>/dev/null || true
 
+test_suite_begin "process matching — unfreeze subcommand"
+
+MODULE="$PROJECT_DIR/enforcement_recovery_module.sh"
+
+_T_CURRENT_TEST="unfreeze with empty PID file exits cleanly"
+if bash "$MODULE" unfreeze --yes >/dev/null 2>&1; then
+    _pass
+else
+    _fail "unfreeze should exit 0 when nothing is suspended"
+fi
+
+_T_CURRENT_TEST="unfreeze --yes resumes a frozen process"
+sleep 30 &
+VICTIM2=$!
+kill -STOP "$VICTIM2" 2>/dev/null
+echo "$VICTIM2" > "$SUSPENDED_PIDS_FILE"
+bash "$MODULE" unfreeze --yes >/dev/null 2>&1 || true
+state=$(ps -o state= -p "$VICTIM2" 2>/dev/null | tr -d ' ')
+if [[ -n "$state" && "$state" != T* ]]; then
+    _pass
+else
+    _fail "process should be running after unfreeze (state: '$state')"
+fi
+kill "$VICTIM2" 2>/dev/null || true
+wait "$VICTIM2" 2>/dev/null || true
+
+_T_CURRENT_TEST="unfreeze --dry-run lists PIDs but resumes nothing"
+sleep 30 &
+VICTIM3=$!
+kill -STOP "$VICTIM3" 2>/dev/null
+echo "$VICTIM3" > "$SUSPENDED_PIDS_FILE"
+output=$(bash "$MODULE" unfreeze --dry-run </dev/null 2>/dev/null)
+state=$(ps -o state= -p "$VICTIM3" 2>/dev/null | tr -d ' ')
+if echo "$output" | grep -q "DRY RUN" && [[ "$state" == T* ]]; then
+    _pass
+else
+    _fail "dry-run must not resume (state: '$state', output: $output)"
+fi
+kill -CONT "$VICTIM3" 2>/dev/null || true
+kill "$VICTIM3" 2>/dev/null || true
+wait "$VICTIM3" 2>/dev/null || true
+> "$SUSPENDED_PIDS_FILE"
+
+_T_CURRENT_TEST="unfreeze without --yes aborts on no input"
+echo "99999" > "$SUSPENDED_PIDS_FILE"
+if bash "$MODULE" unfreeze </dev/null >/dev/null 2>&1; then
+    _fail "unfreeze should abort without confirmation"
+else
+    _pass
+fi
+> "$SUSPENDED_PIDS_FILE"
+
 test_suite_begin "process matching — bad input safety"
 
 _T_CURRENT_TEST="suspend_pids ignores non-numeric input"

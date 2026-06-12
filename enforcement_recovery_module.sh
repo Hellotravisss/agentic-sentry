@@ -389,6 +389,45 @@ restore() {
     rm -f "$RESTORE_CODE_FILE" 2>/dev/null || true
 }
 
+# Resume frozen processes WITHOUT touching network state. Lower-stakes than a
+# full restore: it only sends kill -CONT to PIDs Sentry itself recorded, so it
+# does not require the restore code. Network isolation (if any) stays in place.
+unfreeze() {
+    local confirm="${1:-}"
+
+    if [[ ! -s "$SUSPENDED_PIDS_FILE" ]]; then
+        echo "No suspended processes recorded ($SUSPENDED_PIDS_FILE is empty)."
+        echo "If something still looks frozen, see docs/recovery.md for manual steps."
+        return 0
+    fi
+
+    echo "Processes recorded as suspended by Sentry:"
+    while IFS= read -r pid; do
+        [[ -z "$pid" || ! "$pid" =~ ^[0-9]+$ ]] && continue
+        local comm
+        comm=$(ps -p "$pid" -o comm= 2>/dev/null || echo "no longer running")
+        echo "  PID $pid ($comm)"
+    done < "$SUSPENDED_PIDS_FILE"
+    echo ""
+
+    if [[ "$DRY_RUN" == "1" ]]; then
+        echo "🧪 DRY RUN — would send kill -CONT to the PIDs above. Nothing resumed."
+        return 0
+    fi
+
+    if [[ "$confirm" != "--yes" ]]; then
+        echo -n "Resume all of these now? Network state will NOT change. [y/N] "
+        read -r answer
+        if [[ ! "$answer" =~ ^[Yy] ]]; then
+            echo "Aborted. Nothing resumed."
+            return 1
+        fi
+    fi
+
+    resume_suspended_processes
+    logger -t agentsentry "UNFROZE suspended processes (network untouched)" 2>/dev/null || true
+}
+
 status() {
     echo "=== Agentic Sandbox Sentry Status ==="
     echo "Enforcement log tail:"
@@ -431,7 +470,8 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         setup) setup ;;
         enforce) shift; enforce "$@" ;;
         restore) restore ;;
+        unfreeze) shift; unfreeze "${1:-}" ;;
         status) status ;;
-        *) echo "Usage: $0 [--dry-run] {setup|enforce [reason] [pids_or_path]|restore|status}"; exit 1 ;;
+        *) echo "Usage: $0 [--dry-run] {setup|enforce [reason] [pids_or_path]|restore|unfreeze [--yes]|status}"; exit 1 ;;
     esac
 fi
