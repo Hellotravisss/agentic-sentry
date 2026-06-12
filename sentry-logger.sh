@@ -92,16 +92,20 @@ rotate_all_logs() {
 }
 
 # --- Portable mkdir-based lock with timeout and stale cleanup ---
+# Always prints a single integer; 0 means "missing or unreadable".
+# The path can vanish between any check and the stat call (lock contention),
+# and on Linux `stat -f` is filesystem mode that prints non-numeric text —
+# any such output fed into bash arithmetic kills the caller under set -eu.
 _get_file_mtime() {
     local path="$1"
-    if [[ ! -e "$path" ]]; then
-        echo 0
-        return
-    fi
-    if stat -c %Y "$path" >/dev/null 2>&1; then
-        stat -c %Y "$path"
+    local mtime
+    mtime=$(stat -c %Y "$path" 2>/dev/null) \
+        || mtime=$(stat -f %m "$path" 2>/dev/null) \
+        || mtime=""
+    if [[ "$mtime" =~ ^[0-9]+$ ]]; then
+        echo "$mtime"
     else
-        stat -f %m "$path" 2>/dev/null || echo 0
+        echo 0
     fi
 }
 
