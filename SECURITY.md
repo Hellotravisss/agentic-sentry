@@ -8,6 +8,8 @@ The primary goal of the system is to protect a macOS host from rogue AI agents t
 
 ## Threat Model
 
+For an expanded threat model with concrete agent failure scenarios (including quiet failure modes like stale-session reuse, retry budget burn, orphaned background processes, and credential-bearing debug artifacts) and a per-threat coverage matrix, see [docs/threat-model.md](docs/threat-model.md).
+
 ### Primary Threat Actor
 - **Rogue or compromised AI agent** with interactive or scripted access to a zsh shell on the host.
 - The agent may attempt:
