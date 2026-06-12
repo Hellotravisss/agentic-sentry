@@ -40,20 +40,18 @@ CMD=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null) |
 [[ -z "$CMD" ]] && exit 0
 CWD=$(printf '%s' "$INPUT" | jq -r '.cwd // "/"' 2>/dev/null) || CWD="/"
 
-# Evaluate with the real detection engine. The command is passed via the
-# environment, never interpolated into the zsh script — command strings
-# come from the agent and must not be able to inject into this hook.
-REASON=$(SENTRY_HOOK_CMD="$CMD" SENTRY_HOOK_CWD="$CWD" SENTRY_NOTIFICATIONS="false" \
-    zsh -c '
-        SCRIPT_DIR="'"$PROJECT_DIR"'"
-        source "$SCRIPT_DIR/sentry-config.sh" >/dev/null 2>&1 || true
-        load_sentry_config >/dev/null 2>&1 || true
-        source "$SCRIPT_DIR/sandbox-hooks.zsh" >/dev/null 2>&1 || true
-        is_dangerous "$SENTRY_HOOK_CMD" "$SENTRY_HOOK_CWD"
-    ' 2>/dev/null) || REASON=""
+# Evaluate with the shared agent-agnostic checker (sentry-check.sh) — the
+# command string is passed via the environment, never interpolated, so an
+# agent-controlled command cannot inject into this hook.
+[[ -f "$PROJECT_DIR/sentry-check.sh" ]] || exit 0
+# shellcheck source=/dev/null
+source "$PROJECT_DIR/sentry-check.sh"
 
-# Safe command: stay invisible
-[[ -z "$REASON" ]] && exit 0
+if ! sentry_check_command "$CMD" "$CWD"; then
+    # Safe command (or engine unavailable): stay invisible
+    exit 0
+fi
+REASON="$SENTRY_CHECK_REASON"
 
 # Load Sentry mode and the structured logger (best effort)
 MODE="soft-block"

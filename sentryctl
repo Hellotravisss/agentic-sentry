@@ -178,6 +178,7 @@ usage() {
 
     echo -e "${BOLD}Utilities:${NC}"
     echo -e "  ${CYAN}test${NC} ${DIM}<command>${NC}    Quick heuristic test of a command"
+    echo -e "  ${CYAN}check${NC} ${DIM}[--json] -- <cmd>${NC}  Full-engine verdict for agent integrations ${DIM}(exit 1 = dangerous)${NC}"
     echo -e "  ${CYAN}demo${NC}             Safe walkthrough of detection modes and example decisions"
     echo -e "  ${CYAN}rotate${NC}           Manually rotate all Sentry log files"
     echo ""
@@ -457,6 +458,78 @@ cmd_allow_dir() {
 cmd_last() {
     # Convenience alias for recent interesting events
     cmd_logs --tail 8 "$@"
+}
+
+# Machine-readable verdict for agent integrations (Claude Code, Codex,
+# OpenClaw, custom platforms). Exit 0 = safe, 1 = dangerous, 2 = error.
+cmd_check() {
+    local json=false do_log=false component="check" cwd="$PWD"
+    local -a words=()
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --json) json=true; shift ;;
+            --log) do_log=true; shift ;;
+            --component) component="$2"; shift 2 ;;
+            --cwd) cwd="$2"; shift 2 ;;
+            --) shift; words+=("$@"); break ;;
+            *) words+=("$1"); shift ;;
+        esac
+    done
+
+    local check_cmd="${words[*]:-}"
+    if [[ -z "$check_cmd" ]]; then
+        echo "Usage: sentryctl check [--json] [--log] [--component NAME] [--cwd DIR] -- <command string>" >&2
+        return 2
+    fi
+
+    if [[ ! -f "$SCRIPT_DIR/sentry-check.sh" ]]; then
+        echo "Error: sentry-check.sh not found" >&2
+        return 2
+    fi
+    # shellcheck source=/dev/null
+    source "$SCRIPT_DIR/sentry-check.sh"
+
+    local verdict="safe" reason="" rc=0
+    if sentry_check_command "$check_cmd" "$cwd"; then
+        verdict="dangerous"
+        reason="$SENTRY_CHECK_REASON"
+        rc=1
+    elif [[ $? -eq 2 ]]; then
+        echo "Error: cannot evaluate (zsh not available)" >&2
+        return 2
+    fi
+
+    local mode
+    mode=$(get_sentry_mode 2>/dev/null || echo "unknown")
+
+    if [[ "$do_log" == true && "$verdict" == "dangerous" && -f "$SCRIPT_DIR/sentry-logger.sh" ]] \
+        && ! command -v sentry_log >/dev/null 2>&1; then
+        # shellcheck source=/dev/null
+        source "$SCRIPT_DIR/sentry-logger.sh" >/dev/null 2>&1 || true
+    fi
+    if [[ "$do_log" == true && "$verdict" == "dangerous" ]] && command -v sentry_log >/dev/null 2>&1; then
+        local safe_cmd
+        safe_cmd=$(printf '%s' "$check_cmd" | head -c 300 | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\n\t')
+        sentry_log "CHECK_DANGEROUS" "$reason" "$component" "{\"cmd\":\"$safe_cmd\",\"cwd\":\"$cwd\",\"mode\":\"$mode\"}" 2>/dev/null || true
+    fi
+
+    if [[ "$json" == true ]]; then
+        if command -v jq >/dev/null 2>&1; then
+            jq -cn --arg v "$verdict" --arg r "$reason" --arg m "$mode" \
+                '{verdict: $v, reason: $r, mode: $m}'
+        else
+            printf '{"verdict":"%s","reason":"%s","mode":"%s"}\n' "$verdict" "$reason" "$mode"
+        fi
+    else
+        if [[ "$verdict" == "dangerous" ]]; then
+            echo "DANGEROUS: $reason (mode: $mode)"
+        else
+            echo "SAFE (mode: $mode)"
+        fi
+    fi
+
+    return $rc
 }
 
 cmd_test() {
@@ -957,6 +1030,10 @@ case "${1:-dashboard}" in
     test)
         shift
         cmd_test "$@"
+        ;;
+    check)
+        shift
+        cmd_check "$@"
         ;;
     demo)
         shift
