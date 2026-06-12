@@ -98,6 +98,7 @@ sentryctl selfguard status
 - [Threat model](docs/threat-model.md) — concrete agent failure scenarios and which ones Sentry covers.
 - [Recovery guide](docs/recovery.md) — explains how to restore network/process state after hard enforcement.
 - [Contributing guide](CONTRIBUTING.md) — explains local setup, tests, and security-sensitive PR expectations.
+- [Releasing & verification](docs/releasing.md) — how releases are built, and how to verify checksums and build provenance before running a download.
 - [Changelog](CHANGELOG.md) — tracks release history.
 
 ## Safety Disclaimer

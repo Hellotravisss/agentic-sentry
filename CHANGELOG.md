@@ -2,6 +2,23 @@
 
 All notable changes to Agentic Sandbox Sentry are documented here.
 
+## v0.1.4 - 2026-06-12
+
+### Added
+
+- Added `dry-run` protection mode: blocks risky commands like `soft-block` while printing the full hard-enforcement action plan (network cut, firewall anchor, candidate PIDs) without executing any of it. Also available directly as `enforcement_recovery_module.sh enforce --dry-run` and `restore --dry-run`.
+- Added `unfreeze` recovery command (`sentryctl unfreeze`): resumes Sentry-suspended processes without touching network state or requiring the restore code.
+- Added `sentryctl restore` passthrough (previously documented but not implemented).
+- Added `docs/threat-model.md`: concrete agent failure scenarios mapped to per-mode coverage, including quiet failure modes contributed in issue #5 (stale session reuse, retry budget burn, orphaned background processes, credential-bearing debug artifacts).
+- Added automated release workflow: tag-triggered tarball build, SHA-256 checksums, signed build provenance via GitHub artifact attestation, and changelog-derived release notes. Documented in `docs/releasing.md`.
+- Added test suites for dry-run behavior, process matching/suspension, false-positive regressions, and TTY-wrapper detection.
+
+### Fixed
+
+- Fixed a false positive where every `curl` command without a pipe was flagged as `curl | shell` (zsh ERE treated `\|` as alternation).
+- Fixed a false positive where `bash -c` payloads containing the substring `sh` (for example `bash -c "echo fish"`) were blocked.
+- Fixed TTY-wrapper detection (`nohup`, `script`, `expect`) which never matched because its pattern failed to compile in zsh — wrapped dangerous commands such as `nohup rm -rf` are now detected.
+
 ## v0.1.3 - 2026-05-31
 
 ### Added

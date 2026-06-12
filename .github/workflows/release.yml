@@ -1,0 +1,91 @@
+name: Release
+
+# Repeatable release workflow (issue #4):
+# push a tag like v0.1.4 and this builds a source tarball, generates
+# SHA-256 checksums, attaches signed build provenance (GitHub artifact
+# attestation), extracts the matching CHANGELOG section, and publishes
+# a GitHub Release. See docs/releasing.md for the full process.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run test suite
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bash jq zsh
+          chmod +x run-tests.sh tests/run-tests.sh tests/lib/test-helpers.sh
+          for f in tests/test-*.sh *.sh; do chmod +x "$f" 2>/dev/null || true; done
+          chmod +x sentryctl 2>/dev/null || true
+          ./run-tests.sh --ci
+
+      - name: Build source tarball
+        id: build
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          NAME="agentic-sandbox-sentry-${TAG}"
+          git archive --format=tar.gz --prefix="${NAME}/" -o "${NAME}.tar.gz" "${TAG}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "tarball=${NAME}.tar.gz" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SHA-256 checksums
+        run: |
+          sha256sum "${{ steps.build.outputs.tarball }}" > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            ${{ steps.build.outputs.tarball }}
+            SHA256SUMS
+
+      - name: Extract changelog section
+        run: |
+          TAG="${{ steps.build.outputs.tag }}"
+          # Pull the "## vX.Y.Z" section for this tag out of CHANGELOG.md
+          awk -v tag="$TAG" '
+            $0 ~ "^## " tag " " || $0 ~ "^## " tag "$" { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+
+          if [ ! -s release-notes.md ]; then
+            echo "No CHANGELOG section found for ${TAG} — using a placeholder." >&2
+            echo "Release ${TAG}. See CHANGELOG.md for history." > release-notes.md
+          fi
+
+          {
+            echo ""
+            echo "## Verify your download"
+            echo ""
+            echo '```bash'
+            echo "shasum -a 256 -c SHA256SUMS"
+            echo "gh attestation verify ${{ steps.build.outputs.tarball }} --repo ${GITHUB_REPOSITORY}"
+            echo '```'
+          } >> release-notes.md
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.build.outputs.tag }}" \
+            --title "${{ steps.build.outputs.tag }}" \
+            --notes-file release-notes.md \
+            "${{ steps.build.outputs.tarball }}" \
+            SHA256SUMS
