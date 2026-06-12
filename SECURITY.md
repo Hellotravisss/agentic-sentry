@@ -61,7 +61,7 @@ For an expanded threat model with concrete agent failure scenarios (including qu
 
 5. **Logging Boundary**
    - `sentry-logger.sh` uses mkdir-based locking for concurrency safety.
-   - Logs are written to `$SENTRY_LOG_DIR` (default under `~/.hermes`).
+   - Logs are written to `$SENTRY_LOG_DIR` (default under `~/.agentsentry`; legacy installs use `~/.hermes`).
 
 ## Self-Protection Mechanisms
 
@@ -89,7 +89,7 @@ For an expanded threat model with concrete agent failure scenarios (including qu
    - Does not protect against in-memory tampering of a running process (only on-disk files).
 
 5. **Restore Code Location**
-   - The restore code is written to `~/.hermes/agentsentry-restore.code` by default with `600` file permissions inside a `700` user-private directory. This reduces exposure compared with shared `/tmp`, but any process running as the same user may still read it.
+   - The restore code is written to `$SENTRY_HOME/agentsentry-restore.code` (default `~/.agentsentry`) by default with `600` file permissions inside a `700` user-private directory. This reduces exposure compared with shared `/tmp`, but any process running as the same user may still read it.
 
 6. **No Protection Before Loading**
    - If an attacker modifies scripts or `~/.zshrc` *before* the hooks and monitors are loaded (e.g., during initial setup or after a reboot before launchd starts), the system can be neutered.

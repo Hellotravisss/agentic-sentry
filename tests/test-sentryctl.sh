@@ -135,9 +135,11 @@ else
 fi
 
 _T_CURRENT_TEST="sentryctl logs --json outputs raw JSON"
-# sentryctl looks for logs at $HOME/.hermes/logs/sandbox-audit.log, seed there
-mkdir -p "$HOME/.hermes/logs"
-seed_test_logs_to "$HOME/.hermes/logs/sandbox-audit.log"
+# sentryctl resolves the audit log via the (isolated) config — seed the
+# isolated path, NEVER the user's real home. A previous version of this
+# test seeded $HOME/.hermes/logs and clobbered real audit history.
+mkdir -p "$SENTRY_HOME/logs"
+seed_test_logs_to "$SENTRY_HOME/logs/sandbox-audit.log"
 output=$("$SENTRYCTL" logs --json --tail 1 2>&1 || true)
 if echo "$output" | grep -q '"ts"'; then
     _pass

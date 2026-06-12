@@ -4,15 +4,27 @@
 
 set -euo pipefail
 
-# Default locations
-SENTRY_HOME="${SENTRY_HOME:-$HOME/.hermes}"
+# Default locations.
+# Home resolution (keep in sync with sentry-logger.sh / enforcement /
+# selfguard): env override > existing ~/.agentsentry > legacy ~/.hermes
+# (pre-0.1.5 default, which collides with Hermes Agent's config dir) >
+# fresh ~/.agentsentry. 'sentryctl migrate-home' moves legacy data over.
+if [[ -z "${SENTRY_HOME:-}" ]]; then
+    if [[ -f "$HOME/.agentsentry/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.agentsentry"
+    elif [[ -f "$HOME/.hermes/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.hermes"
+    else
+        SENTRY_HOME="$HOME/.agentsentry"
+    fi
+fi
 SENTRY_CONFIG="${SENTRY_CONFIG:-$SENTRY_HOME/sentry-config.json}"
 SAFETY_RULES="${SAFETY_RULES:-$SENTRY_HOME/safety-rules.json}"
 
 # Default values (used if config file is missing or incomplete)
 DEFAULT_MODE="soft-block"           # audit | warn | dry-run | soft-block | hard
 DEFAULT_NOTIFICATIONS="true"
-# Prefer persistent location under ~/.hermes/logs for durability (Route C audit focus)
+# Persistent location under the Sentry home for durability
 DEFAULT_AUDIT_LOG="$SENTRY_HOME/logs/sandbox-audit.log"
 
 # Load configuration (with sensible defaults)

@@ -8,7 +8,17 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SAFETY_RULES="${SAFETY_RULES:-$HOME/.hermes/safety-rules.json}"
+# Home resolution (keep in sync with sentry-config.sh)
+if [[ -z "${SENTRY_HOME:-}" ]]; then
+    if [[ -f "$HOME/.agentsentry/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.agentsentry"
+    elif [[ -f "$HOME/.hermes/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.hermes"
+    else
+        SENTRY_HOME="$HOME/.agentsentry"
+    fi
+fi
+SAFETY_RULES="${SAFETY_RULES:-$SENTRY_HOME/safety-rules.json}"
 ENFORCEMENT_SCRIPT="${ENFORCEMENT_SCRIPT:-$SCRIPT_DIR/enforcement_recovery_module.sh}"
 AUDIT_LOG="${AUDIT_LOG:-/tmp/sandbox-audit.log}"
 SENTRY_DIR="$SCRIPT_DIR"
@@ -53,7 +63,7 @@ parse_fswatch_line() {
 }
 
 # Self-protection: also watch the sentry scripts themselves (P3)
-ALL_PATHS=("${SENSITIVE_PATHS[@]}" "$SENTRY_DIR" "$HOME/.hermes")
+ALL_PATHS=("${SENSITIVE_PATHS[@]}" "$SENTRY_DIR" "$SENTRY_HOME")
 
 # Use fswatch with null-delim where possible, but -x for events; robust parse
 fswatch -r -x --event-flags "${ALL_PATHS[@]}" 2>/dev/null | while IFS= read -r line; do

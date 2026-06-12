@@ -79,14 +79,14 @@ If a restore code is required, use the code shown during enforcement. The restor
 Default restore-code location:
 
 ```bash
-~/.hermes/agentsentry-restore.code
+~/.agentsentry/agentsentry-restore.code   # legacy installs: ~/.hermes/...
 ```
 
 Permissions should be:
 
 ```bash
-chmod 700 ~/.hermes
-chmod 600 ~/.hermes/agentsentry-restore.code
+chmod 700 ~/.agentsentry
+chmod 600 ~/.agentsentry/agentsentry-restore.code
 ```
 
 ## Resume frozen processes without touching the network
@@ -222,7 +222,7 @@ launchctl list | grep -i sentry || true
 Clean user-local runtime files only after confirming no enforcement is active:
 
 ```bash
-rm -f ~/.hermes/agentsentry-restore.code
+rm -f ~/.agentsentry/agentsentry-restore.code   # legacy: ~/.hermes/...
 rm -f /tmp/suspended_pids.txt
 ```
 

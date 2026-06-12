@@ -15,7 +15,16 @@ set -euo pipefail
 # ============================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_NAME="Agentic-Sandbox-Sentry"
-SENTRY_HOME="$HOME/.hermes"
+# Home resolution (keep in sync with sentry-config.sh)
+if [[ -z "${SENTRY_HOME:-}" ]]; then
+    if [[ -f "$HOME/.agentsentry/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.agentsentry"
+    elif [[ -f "$HOME/.hermes/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.hermes"
+    else
+        SENTRY_HOME="$HOME/.agentsentry"
+    fi
+fi
 SENTRY_LOG_DIR="$SENTRY_HOME/logs"
 SENTRY_BIN_DIR="$HOME/.local/bin"
 PLIST_NAME="com.agentsentry.fswatch"
@@ -65,9 +74,9 @@ for arg in "$@"; do
             echo "  ./install.sh --help       Show this help"
             echo ""
             echo "What it installs:"
-            echo "  - Safety rules to ~/.hermes/safety-rules.json"
-            echo "  - Config to ~/.hermes/sentry-config.json"
-            echo "  - Audit logs directory ~/.hermes/logs/"
+            echo "  - Safety rules to \$SENTRY_HOME/safety-rules.json (default ~/.agentsentry)"
+            echo "  - Config to \$SENTRY_HOME/sentry-config.json"
+            echo "  - Audit logs directory \$SENTRY_HOME/logs/"
             echo "  - Dynamic launchd plist (macOS background monitor)"
             echo "  - Shell hooks in ~/.zshrc (or ~/.bashrc)"
             echo "  - sentryctl symlink in ~/.local/bin/"

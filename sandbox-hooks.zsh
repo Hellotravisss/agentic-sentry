@@ -1,6 +1,7 @@
 #!/usr/bin/env zsh
 # Agentic Sandbox Sentry - zsh preexec hook (Audit-First / Route C)
-# Behavior is controlled by SENTRY_MODE in ~/.hermes/sentry-config.json
+# Behavior is controlled by SENTRY_MODE in $SENTRY_HOME/sentry-config.json
+# (default ~/.agentsentry; legacy installs use ~/.hermes)
 # Modes: audit | warn | dry-run | soft-block (default) | hard
 
 # Load central configuration (supports both bash and zsh)
@@ -15,10 +16,19 @@ if [[ -f "$CONFIG_LOADER" ]]; then
     fi
     load_sentry_config 2>/dev/null || true
 else
-    # Minimal fallback
+    # Minimal fallback (home resolution kept in sync with sentry-config.sh)
+    if [[ -z "${SENTRY_HOME:-}" ]]; then
+        if [[ -f "$HOME/.agentsentry/sentry-config.json" ]]; then
+            SENTRY_HOME="$HOME/.agentsentry"
+        elif [[ -f "$HOME/.hermes/sentry-config.json" ]]; then
+            SENTRY_HOME="$HOME/.hermes"
+        else
+            SENTRY_HOME="$HOME/.agentsentry"
+        fi
+    fi
     export SENTRY_MODE="${SENTRY_MODE:-soft-block}"
     export AUDIT_LOG="${AUDIT_LOG:-/tmp/sandbox-audit.log}"
-    export SAFETY_RULES="${SAFETY_RULES:-$HOME/.hermes/safety-rules.json}"
+    export SAFETY_RULES="${SAFETY_RULES:-$SENTRY_HOME/safety-rules.json}"
 fi
 
 # Load unified structured logger (provides log_sentry_event, sentry_log)
@@ -59,7 +69,7 @@ log_sentry_event() {
 setopt PROMPT_SUBST
 
 SCRIPT_DIR="${0:A:h}"
-SAFETY_RULES="${SAFETY_RULES:-$HOME/.hermes/safety-rules.json}"
+SAFETY_RULES="${SAFETY_RULES:-${SENTRY_HOME:-$HOME/.agentsentry}/safety-rules.json}"
 ENFORCEMENT_SCRIPT="${ENFORCEMENT_SCRIPT:-$SCRIPT_DIR/enforcement_recovery_module.sh}"
 AUDIT_LOG="${AUDIT_LOG:-/tmp/sandbox-audit.log}"
 

@@ -15,7 +15,18 @@
 set -euo pipefail
 
 # --- Configuration (override via env or sentry-config.json) ---
-SENTRY_LOG_DIR="${SENTRY_LOG_DIR:-$HOME/.hermes/logs}"
+# Home resolution (keep in sync with sentry-config.sh)
+if [[ -z "${SENTRY_LOG_DIR:-}" ]]; then
+    if [[ -n "${SENTRY_HOME:-}" ]]; then
+        SENTRY_LOG_DIR="$SENTRY_HOME/logs"
+    elif [[ -f "$HOME/.agentsentry/sentry-config.json" ]]; then
+        SENTRY_LOG_DIR="$HOME/.agentsentry/logs"
+    elif [[ -f "$HOME/.hermes/sentry-config.json" ]]; then
+        SENTRY_LOG_DIR="$HOME/.hermes/logs"
+    else
+        SENTRY_LOG_DIR="$HOME/.agentsentry/logs"
+    fi
+fi
 SENTRY_AUDIT_LOG="${SENTRY_AUDIT_LOG:-$SENTRY_LOG_DIR/sandbox-audit.log}"
 SENTRY_ENFORCE_LOG="${SENTRY_ENFORCE_LOG:-$SENTRY_LOG_DIR/enforcement.log}"
 SENTRY_SELFLOG="${SENTRY_SELFLOG:-$SENTRY_LOG_DIR/selfguard.log}"

@@ -77,7 +77,17 @@ _last_log_lines=0
 _last_log_mtime=0
 
 # Resolve log files
-SENTRY_LOG_DIR="${SENTRY_LOG_DIR:-$HOME/.hermes/logs}"
+# Home resolution (keep in sync with sentry-config.sh)
+if [[ -z "${SENTRY_HOME:-}" ]]; then
+    if [[ -f "$HOME/.agentsentry/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.agentsentry"
+    elif [[ -f "$HOME/.hermes/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.hermes"
+    else
+        SENTRY_HOME="$HOME/.agentsentry"
+    fi
+fi
+SENTRY_LOG_DIR="${SENTRY_LOG_DIR:-$SENTRY_HOME/logs}"
 AUDIT_LOG="${AUDIT_LOG:-$SENTRY_LOG_DIR/sandbox-audit.log}"
 ENFORCE_LOG="${SENTRY_ENFORCE_LOG:-$SENTRY_LOG_DIR/enforcement.log}"
 SELFGUARD_LOG="${SENTRY_SELFLOG:-$SENTRY_LOG_DIR/selfguard.log}"

@@ -6,7 +6,16 @@
 
 set -euo pipefail
 
-SENTRY_HOME="${SENTRY_HOME:-$HOME/.hermes}"
+# Home resolution (keep in sync with sentry-config.sh)
+if [[ -z "${SENTRY_HOME:-}" ]]; then
+    if [[ -f "$HOME/.agentsentry/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.agentsentry"
+    elif [[ -f "$HOME/.hermes/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.hermes"
+    else
+        SENTRY_HOME="$HOME/.agentsentry"
+    fi
+fi
 ENFORCE_LOG="${SENTRY_ENFORCE_LOG:-$SENTRY_HOME/logs/enforcement.log}"
 # Legacy fallback for older setups
 [[ ! -d "$(dirname "$ENFORCE_LOG")" ]] && ENFORCE_LOG="/tmp/sandbox-enforcement.log"

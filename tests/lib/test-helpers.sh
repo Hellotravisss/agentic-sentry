@@ -54,6 +54,13 @@ test_isolate() {
     export SENTRY_MODE="soft-block"
     export SENTRY_NOTIFICATIONS="false"
 
+    # Isolate the logger too: sentry-logger.sh has its own defaults and
+    # would otherwise write to the user's real Sentry home.
+    export SENTRY_LOG_DIR="$SENTRY_HOME/logs"
+    export SENTRY_AUDIT_LOG="$SENTRY_LOG_DIR/sandbox-audit.log"
+    export SENTRY_ENFORCE_LOG="$SENTRY_LOG_DIR/enforcement.log"
+    export SENTRY_SELFLOG="$SENTRY_LOG_DIR/selfguard.log"
+
     mkdir -p "$SENTRY_HOME/logs"
 
     # Create a default safety-rules.json for tests

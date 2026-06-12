@@ -14,8 +14,9 @@ back to the user and explaining them.
 
 - Sentry repo: `__SENTRY_REPO__`
 - CLI: `__SENTRY_REPO__/sentryctl`
-- Audit log (JSON lines): `~/.hermes/logs/sandbox-audit.log` (rotated files alongside)
-- Config: `~/.hermes/sentry-config.json` (field `mode`: audit | warn | dry-run | soft-block | hard)
+- Sentry home: `~/.agentsentry` (legacy installs: `~/.hermes`) — call it `$SH` below
+- Audit log (JSON lines): `$SH/logs/sandbox-audit.log` (rotated files alongside)
+- Config: `$SH/sentry-config.json` (field `mode`: audit | warn | dry-run | soft-block | hard)
 
 If the repo path above does not exist, search for `sentryctl` before giving up.
 
@@ -34,7 +35,8 @@ For agent-specific activity (Claude Code tool calls only), filter the raw log by
 component:
 
 ```bash
-grep '"component":"claude-hook"' ~/.hermes/logs/sandbox-audit.log | tail -50
+SH=$([ -f ~/.agentsentry/sentry-config.json ] && echo ~/.agentsentry || echo ~/.hermes)
+grep '"component":"claude-hook"' "$SH/logs/sandbox-audit.log" | tail -50
 ```
 
 Each line is JSON with `ts`, `decision`, `reason`, `cmd`, `cwd`, `mode`. Decisions:
@@ -56,7 +58,7 @@ Each line is JSON with `ts`, `decision`, `reason`, `cmd`, `cwd`, `mode`. Decisio
    usually means an agent retry loop burning budget (threat model T9). Count with:
 
    ```bash
-   grep '"component":"claude-hook"' ~/.hermes/logs/sandbox-audit.log \
+   grep '"component":"claude-hook"' "$SH/logs/sandbox-audit.log" \
      | jq -r '.cmd' | sort | uniq -c | sort -rn | head
    ```
 

@@ -18,7 +18,16 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SENTRY_HOME="${SENTRY_HOME:-$HOME/.hermes}"
+# Home resolution (keep in sync with sentry-config.sh)
+if [[ -z "${SENTRY_HOME:-}" ]]; then
+    if [[ -f "$HOME/.agentsentry/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.agentsentry"
+    elif [[ -f "$HOME/.hermes/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.hermes"
+    else
+        SENTRY_HOME="$HOME/.agentsentry"
+    fi
+fi
 
 # Load logger
 if [[ -f "$SCRIPT_DIR/sentry-logger.sh" ]]; then

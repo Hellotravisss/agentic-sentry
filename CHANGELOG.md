@@ -13,6 +13,10 @@ All notable changes to Agentic Sandbox Sentry are documented here.
 - Added experimental OpenClaw plugin (`integrations/openclaw/sentry-guard`): `before_tool_call` handler mapping Sentry modes to block / requireApproval / logged passthrough.
 - Added `docs/integrations.md`: per-platform status matrix, decision mapping, Hermes Agent cooperation guide, and a recipe for writing new adapters.
 
+### Changed
+
+- Sentry's default home directory moved from `~/.hermes` — which collides with Hermes Agent's config directory — to `~/.agentsentry`. Existing installs keep working (legacy `~/.hermes` is detected and used automatically); run `sentryctl migrate-home` to move Sentry's files out of Hermes' directory. `SENTRY_HOME` env override continues to win over both.
+
 ## v0.1.4 - 2026-06-12
 
 ### Added

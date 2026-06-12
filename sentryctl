@@ -100,7 +100,7 @@ cmd_dashboard() {
     echo -e "  ${BOLD}Agents:${NC}  fswatch ${fswatch_status}  selfguard ${selfguard_status}"
     echo ""
 
-    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    local log_file="${AUDIT_LOG:-${SENTRY_HOME:-$HOME/.agentsentry}/logs/sandbox-audit.log}"
     [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
 
     if [[ -f "$log_file" && -s "$log_file" ]]; then
@@ -181,6 +181,7 @@ usage() {
     echo -e "  ${CYAN}check${NC} ${DIM}[--json] -- <cmd>${NC}  Full-engine verdict for agent integrations ${DIM}(exit 1 = dangerous)${NC}"
     echo -e "  ${CYAN}demo${NC}             Safe walkthrough of detection modes and example decisions"
     echo -e "  ${CYAN}rotate${NC}           Manually rotate all Sentry log files"
+    echo -e "  ${CYAN}migrate-home${NC}     Move Sentry data from legacy ~/.hermes to ~/.agentsentry"
     echo ""
 
     _divider
@@ -317,14 +318,14 @@ cmd_logs() {
     done
 
     # Strong preference for the new persistent location (Route C)
-    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    local log_file="${AUDIT_LOG:-${SENTRY_HOME:-$HOME/.agentsentry}/logs/sandbox-audit.log}"
     if [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]]; then
         log_file="/tmp/sandbox-audit.log"
     fi
 
     if [[ ! -f "$log_file" ]]; then
         _hint "No audit log found yet."
-        _hint "Logs will appear at: $HOME/.hermes/logs/sandbox-audit.log"
+        _hint "Logs will appear at: ${AUDIT_LOG:-$SENTRY_HOME/logs/sandbox-audit.log}"
         return 0
     fi
 
@@ -410,7 +411,7 @@ cmd_config() {
     fi
 
     echo ""
-    echo -e "  ${BOLD}Config file:${NC} ${DIM}${SENTRY_CONFIG:-$HOME/.hermes/sentry-config.json}${NC}"
+    echo -e "  ${BOLD}Config file:${NC} ${DIM}${SENTRY_CONFIG:-$SENTRY_HOME/sentry-config.json}${NC}"
 }
 
 cmd_allow_dir() {
@@ -424,7 +425,7 @@ cmd_allow_dir() {
     # Expand to absolute path
     new_dir=$(cd "$new_dir" 2>/dev/null && pwd || echo "$new_dir")
 
-    local rules_file="${SAFETY_RULES:-$HOME/.hermes/safety-rules.json}"
+    local rules_file="${SAFETY_RULES:-$SENTRY_HOME/safety-rules.json}"
 
     if [[ ! -f "$rules_file" ]]; then
         _error "Safety rules file not found: $rules_file"
@@ -458,6 +459,63 @@ cmd_allow_dir() {
 cmd_last() {
     # Convenience alias for recent interesting events
     cmd_logs --tail 8 "$@"
+}
+
+# Move Sentry-owned files out of the legacy ~/.hermes home (which collides
+# with Hermes Agent's config directory) into ~/.agentsentry. Only touches
+# files Sentry created; everything else in ~/.hermes is left alone.
+cmd_migrate_home() {
+    local legacy="$HOME/.hermes"
+    local new_home="$HOME/.agentsentry"
+
+    if [[ -n "${SENTRY_HOME:-}" && "$SENTRY_HOME" != "$legacy" && "$SENTRY_HOME" != "$new_home" ]]; then
+        _error "SENTRY_HOME is set to a custom path ($SENTRY_HOME) — nothing to migrate."
+        return 1
+    fi
+    if [[ ! -f "$legacy/sentry-config.json" ]]; then
+        _success "No legacy Sentry data in $legacy — already migrated or fresh install."
+        return 0
+    fi
+    if [[ -f "$new_home/sentry-config.json" ]]; then
+        _error "$new_home already has a config. Resolve manually to avoid overwriting."
+        return 1
+    fi
+
+    _header "Migrating Sentry home: $legacy → $new_home" "$BLUE"
+    mkdir -p "$new_home/logs"
+    chmod 700 "$new_home" 2>/dev/null || true
+
+    local moved=0 f
+    for f in sentry-config.json safety-rules.json agentsentry-restore.code; do
+        if [[ -f "$legacy/$f" ]]; then
+            mv "$legacy/$f" "$new_home/$f"
+            echo "  moved $f"
+            ((moved++)) || true
+        fi
+    done
+    for f in "$legacy"/logs/sandbox-audit.log* "$legacy"/logs/enforcement.log* \
+             "$legacy"/logs/selfguard.log* "$legacy"/logs/.rotate_counter \
+             "$legacy"/logs/selfguard.pid; do
+        if [[ -e "$f" ]]; then
+            mv "$f" "$new_home/logs/$(basename "$f")"
+            echo "  moved logs/$(basename "$f")"
+            ((moved++)) || true
+        fi
+    done
+
+    # Rewrite the absolute audit_log path stored inside the config
+    if command -v jq >/dev/null 2>&1; then
+        local tmp
+        tmp=$(mktemp)
+        jq --arg p "$new_home/logs/sandbox-audit.log" '.audit_log = $p' \
+            "$new_home/sentry-config.json" > "$tmp" && mv "$tmp" "$new_home/sentry-config.json"
+        echo "  updated audit_log path in config"
+    fi
+
+    echo ""
+    _success "Migrated $moved item(s). Sentry now lives in $new_home."
+    _hint "Other files in $legacy (Hermes Agent's own data) were not touched."
+    _hint "Reload your shell (source ~/.zshrc) so hooks pick up the new path."
 }
 
 # Machine-readable verdict for agent integrations (Claude Code, Codex,
@@ -706,7 +764,7 @@ cmd_notifications() {
 # === New powerful commands for excellent audit experience ===
 
 cmd_stats() {
-    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    local log_file="${AUDIT_LOG:-${SENTRY_HOME:-$HOME/.agentsentry}/logs/sandbox-audit.log}"
     [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
 
     if [[ ! -f "$log_file" ]]; then
@@ -754,7 +812,7 @@ cmd_stats() {
 
 cmd_explain() {
     local index="${1:-1}"   # default to the most recent
-    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    local log_file="${AUDIT_LOG:-${SENTRY_HOME:-$HOME/.agentsentry}/logs/sandbox-audit.log}"
     [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
 
     if [[ ! -f "$log_file" ]]; then
@@ -790,7 +848,7 @@ cmd_watch() {
     echo "Press Ctrl-C to stop."
     echo ""
 
-    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    local log_file="${AUDIT_LOG:-${SENTRY_HOME:-$HOME/.agentsentry}/logs/sandbox-audit.log}"
     [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
 
     if [[ ! -f "$log_file" ]]; then
@@ -832,7 +890,7 @@ cmd_export() {
     done
 
     load_sentry_config 2>/dev/null || true
-    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    local log_file="${AUDIT_LOG:-${SENTRY_HOME:-$HOME/.agentsentry}/logs/sandbox-audit.log}"
     [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
 
     if [[ ! -f "$log_file" ]]; then
@@ -877,7 +935,7 @@ cmd_watch() {
     echo -e "${BLUE}${BOLD}━━━ Sentry Live Dashboard ━━━${NC}   ${DIM}(Ctrl-C to exit)${NC}"
     echo ""
 
-    local log_file="$HOME/.hermes/logs/sandbox-audit.log"
+    local log_file="${AUDIT_LOG:-${SENTRY_HOME:-$HOME/.agentsentry}/logs/sandbox-audit.log}"
     [[ ! -f "$log_file" && -f "/tmp/sandbox-audit.log" ]] && log_file="/tmp/sandbox-audit.log"
 
     # Show initial stats
@@ -1034,6 +1092,9 @@ case "${1:-dashboard}" in
     check)
         shift
         cmd_check "$@"
+        ;;
+    migrate-home)
+        cmd_migrate_home
         ;;
     demo)
         shift

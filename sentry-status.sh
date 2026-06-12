@@ -32,10 +32,19 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-# Resolve log files
-AUDIT_LOG="${AUDIT_LOG:-$HOME/.hermes/logs/sandbox-audit.log}"
-ENFORCE_LOG="${SENTRY_ENFORCE_LOG:-$HOME/.hermes/logs/enforcement.log}"
-SELFGUARD_LOG="${SENTRY_SELFLOG:-$HOME/.hermes/logs/selfguard.log}"
+# Resolve log files (home resolution kept in sync with sentry-config.sh)
+if [[ -z "${SENTRY_HOME:-}" ]]; then
+    if [[ -f "$HOME/.agentsentry/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.agentsentry"
+    elif [[ -f "$HOME/.hermes/sentry-config.json" ]]; then
+        SENTRY_HOME="$HOME/.hermes"
+    else
+        SENTRY_HOME="$HOME/.agentsentry"
+    fi
+fi
+AUDIT_LOG="${AUDIT_LOG:-$SENTRY_HOME/logs/sandbox-audit.log}"
+ENFORCE_LOG="${SENTRY_ENFORCE_LOG:-$SENTRY_HOME/logs/enforcement.log}"
+SELFGUARD_LOG="${SENTRY_SELFLOG:-$SENTRY_HOME/logs/selfguard.log}"
 [[ ! -f "$AUDIT_LOG" && -f "/tmp/sandbox-audit.log" ]] && AUDIT_LOG="/tmp/sandbox-audit.log"
 
 # Parse args

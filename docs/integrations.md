@@ -78,10 +78,10 @@ commands the way it does for Claude Code or Codex. What works today:
    sensitive paths (`~/.ssh`, keychains) is detected regardless of which agent
    triggers it, and hard mode's self-protection applies machine-wide.
 
-3. **Audit overlap warning**: Sentry's default home directory is currently
-   `~/.hermes` — the same directory Hermes Agent uses. They coexist (Sentry
-   only writes `sentry-config.json`, `safety-rules.json`, and `logs/sandbox-*`),
-   but a dedicated Sentry home is planned to avoid confusion.
+3. **Home directories no longer collide**: Sentry's default home is
+   `~/.agentsentry` (since 0.1.5). Installs from before that used `~/.hermes`
+   — the same directory Hermes Agent uses — and keep working, but should run
+   `sentryctl migrate-home` to move Sentry's files out of Hermes' directory.
 
 If Hermes adds a pre-execution policy hook, the adapter will be ~80 lines on
 top of `sentryctl check` — contributions welcome, and a feature request
