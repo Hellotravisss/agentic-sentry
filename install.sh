@@ -35,7 +35,7 @@ HOOK_LINE="source $SCRIPT_DIR/sandbox-hooks.zsh"
 HOOK_MARKER="# >>> Agentic Sandbox Sentry >>>"
 HOOK_MARKER_END="# <<< Agentic Sandbox Sentry <<<"
 SENTRYCTL_LINK="$SENTRY_BIN_DIR/sentryctl"
-VERSION="0.1.5"
+VERSION="0.1.6"
 
 # ============================================================
 # Colors & helpers
