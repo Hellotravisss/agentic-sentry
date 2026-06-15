@@ -1,5 +1,5 @@
 #!/bin/bash
-# sentry-config.sh - Central configuration loader for Agentic Sandbox Sentry (Route C)
+# sentry-config.sh - Central configuration loader for Agentic Sentry (Route C)
 # Provides unified access to operational settings (mode, notifications, paths, etc.)
 
 set -euo pipefail
@@ -80,7 +80,7 @@ is_hard_mode() {
 # Print current effective configuration (for debugging / sentryctl)
 print_sentry_config() {
     load_sentry_config
-    echo "=== Agentic Sandbox Sentry Configuration ==="
+    echo "=== Agentic Sentry Configuration ==="
     echo "Mode:              $SENTRY_MODE"
     echo "Notifications:     $SENTRY_NOTIFICATIONS"
     echo "Audit log:         $AUDIT_LOG"
@@ -102,7 +102,7 @@ ensure_sentry_config() {
   "mode": "soft-block",
   "notifications": true,
   "audit_log": "$DEFAULT_AUDIT_LOG",
-  "description": "Operational settings for Agentic Sandbox Sentry. Use 'sentryctl mode <name>' to change."
+  "description": "Operational settings for Agentic Sentry. Use 'sentryctl mode <name>' to change."
 }
 EOF
         echo "Created default config at $SENTRY_CONFIG"

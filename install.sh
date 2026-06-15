@@ -1,5 +1,5 @@
 #!/bin/bash
-# One-command installer for Agentic Sandbox Sentry
+# One-command installer for Agentic Sentry
 # Features: dependency checks, dynamic plist, shell hook setup, uninstall, idempotent
 #
 # Usage:
@@ -14,7 +14,7 @@ set -euo pipefail
 # Constants
 # ============================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_NAME="Agentic-Sandbox-Sentry"
+PROJECT_NAME="Agentic-Sentry"
 # Home resolution (keep in sync with sentry-config.sh)
 if [[ -z "${SENTRY_HOME:-}" ]]; then
     if [[ -f "$HOME/.agentsentry/sentry-config.json" ]]; then
@@ -32,8 +32,8 @@ PLIST_PATH="$HOME/Library/LaunchAgents/${PLIST_NAME}.plist"
 ZSHRC="$HOME/.zshrc"
 BASHRC="$HOME/.bashrc"
 HOOK_LINE="source $SCRIPT_DIR/sandbox-hooks.zsh"
-HOOK_MARKER="# >>> Agentic Sandbox Sentry >>>"
-HOOK_MARKER_END="# <<< Agentic Sandbox Sentry <<<"
+HOOK_MARKER="# >>> Agentic Sentry >>>"
+HOOK_MARKER_END="# <<< Agentic Sentry <<<"
 SENTRYCTL_LINK="$SENTRY_BIN_DIR/sentryctl"
 VERSION="0.1.6"
 
@@ -65,7 +65,7 @@ for arg in "$@"; do
         --dry-run|-n)  DRY_RUN=true ;;
         --uninstall|-u) DO_UNINSTALL=true ;;
         --help|-h)
-            echo "Agentic Sandbox Sentry Installer v${VERSION}"
+            echo "Agentic Sentry Installer v${VERSION}"
             echo ""
             echo "Usage:"
             echo "  ./install.sh              Install and configure Sentry"
@@ -97,7 +97,7 @@ fi
 # UNINSTALL
 # ============================================================
 do_uninstall() {
-    step "Uninstalling Agentic Sandbox Sentry"
+    step "Uninstalling Agentic Sentry"
 
     # 1. Unload and remove launchd plist
     if [[ -f "$PLIST_PATH" ]]; then
@@ -174,7 +174,7 @@ fi
 
 echo -e "${BOLD}"
 echo "  ╔═══════════════════════════════════════════╗"
-echo "  ║   Agentic Sandbox Sentry — Installer      ║"
+echo "  ║   Agentic Sentry — Installer      ║"
 echo "  ║   v${VERSION}                                ║"
 echo "  ╚═══════════════════════════════════════════╝"
 echo -e "${NC}"
@@ -311,7 +311,7 @@ if [[ ! -f "$SENTRY_HOME/sentry-config.json" ]]; then
   "mode": "soft-block",
   "notifications": true,
   "audit_log": "$SENTRY_LOG_DIR/sandbox-audit.log",
-  "description": "Operational settings for Agentic Sandbox Sentry. Use 'sentryctl mode <name>' to change."
+  "description": "Operational settings for Agentic Sentry. Use 'sentryctl mode <name>' to change."
 }
 CFGEOF
     fi
@@ -395,7 +395,7 @@ install_hooks_in_rc() {
     local hook_block
     hook_block=$(cat << HOOKEOF
 $HOOK_MARKER
-# Agentic Sandbox Sentry — shell command interception
+# Agentic Sentry — shell command interception
 export PATH="$SENTRY_BIN_DIR:\$PATH"
 $hook_cmd
 $HOOK_MARKER_END

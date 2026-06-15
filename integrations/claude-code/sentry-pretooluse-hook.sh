@@ -1,7 +1,7 @@
 #!/bin/bash
 # sentry-pretooluse-hook.sh - Claude Code PreToolUse hook adapter
 #
-# Bridges Agentic Sandbox Sentry's detection engine into Claude Code's
+# Bridges Agentic Sentry's detection engine into Claude Code's
 # official hook system. Claude Code invokes this before every Bash tool
 # call; we evaluate the command with the same is_dangerous() rules the
 # zsh hook uses, then map Sentry's mode to a permission decision:

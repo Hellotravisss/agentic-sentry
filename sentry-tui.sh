@@ -1,5 +1,5 @@
 #!/bin/bash
-# sentry-tui.sh — Real-time Terminal User Interface for Agentic Sandbox Sentry
+# sentry-tui.sh — Real-time Terminal User Interface for Agentic Sentry
 # Shows live status, component health, and recent violations in a full-screen TUI.
 #
 # Usage:

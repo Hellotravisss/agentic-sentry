@@ -1,6 +1,6 @@
 # OpenClaw Plugin: sentry-guard (experimental)
 
-Bridges Agentic Sandbox Sentry into OpenClaw's typed plugin hook system. The
+Bridges Agentic Sentry into OpenClaw's typed plugin hook system. The
 plugin registers a `before_tool_call` handler that screens exec/shell commands
 with `sentryctl check` before they run on the host.
 
@@ -20,10 +20,10 @@ shell events.
 1. Copy (or symlink) the `sentry-guard/` directory into one of OpenClaw's
    plugin discovery locations, or register it in your OpenClaw config per the
    [plugin docs](https://docs.openclaw.ai/plugins).
-2. Tell the plugin where Sentry lives if not at `~/agentic-sandbox-sentry`:
+2. Tell the plugin where Sentry lives if not at `~/agentic-sentry`:
 
    ```bash
-   export SENTRY_REPO=/path/to/agentic-sandbox-sentry
+   export SENTRY_REPO=/path/to/agentic-sentry
    ```
 
 3. Enable the plugin and restart the OpenClaw gateway.

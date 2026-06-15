@@ -1,6 +1,6 @@
 # Releasing
 
-How to cut a release of Agentic Sandbox Sentry, and how users verify what they
+How to cut a release of Agentic Sentry, and how users verify what they
 downloaded. The process is automated by
 [.github/workflows/release.yml](../.github/workflows/release.yml).
 
@@ -36,8 +36,8 @@ sha256sum -c SHA256SUMS            # Linux
 
 # 2. Provenance: confirms it was built by this repo's release workflow
 #    on GitHub-hosted infrastructure (requires the GitHub CLI)
-gh attestation verify agentic-sandbox-sentry-vX.Y.Z.tar.gz \
-  --repo Hellotravisss/agentic-sandbox-sentry
+gh attestation verify agentic-sentry-vX.Y.Z.tar.gz \
+  --repo Hellotravisss/agentic-sentry
 ```
 
 If either check fails, do not run the code — re-download from the official
@@ -46,7 +46,7 @@ releases page, and if it still fails, report it per [SECURITY.md](../SECURITY.md
 Cloning the repository at a tag is an equally valid installation path:
 
 ```bash
-git clone --branch vX.Y.Z https://github.com/Hellotravisss/agentic-sandbox-sentry.git
+git clone --branch vX.Y.Z https://github.com/Hellotravisss/agentic-sentry.git
 ```
 
 ## Why provenance instead of GPG

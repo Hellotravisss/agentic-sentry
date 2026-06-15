@@ -1,5 +1,5 @@
 #!/usr/bin/env zsh
-# Agentic Sandbox Sentry - zsh preexec hook (Audit-First / Route C)
+# Agentic Sentry - zsh preexec hook (Audit-First / Route C)
 # Behavior is controlled by SENTRY_MODE in $SENTRY_HOME/sentry-config.json
 # (default ~/.agentsentry; legacy installs use ~/.hermes)
 # Modes: audit | warn | dry-run | soft-block (default) | hard
@@ -328,7 +328,7 @@ precmd() {
     # Could add session heartbeat here (P6)
 }
 
-echo "✅ Agentic Sandbox Sentry hooks loaded (zsh)"
+echo "✅ Agentic Sentry hooks loaded (zsh)"
 echo "   Mode: $SENTRY_MODE   |   Rules: $SAFETY_RULES"
 echo "   Change mode with: sentryctl mode <audit|warn|dry-run|soft-block|hard>"
 echo "   Audit log: $AUDIT_LOG"

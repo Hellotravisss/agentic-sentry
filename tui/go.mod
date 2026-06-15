@@ -1,4 +1,4 @@
-module github.com/agentic-sandbox-sentry/tui
+module github.com/agentic-sentry/tui
 
 go 1.25.6
 

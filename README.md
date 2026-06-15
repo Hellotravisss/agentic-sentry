@@ -1,12 +1,12 @@
-# Agentic Sandbox Sentry
+# Agentic Sentry
 
-[![Tests](https://github.com/Hellotravisss/agentic-sandbox-sentry/actions/workflows/test.yml/badge.svg)](https://github.com/Hellotravisss/agentic-sandbox-sentry/actions/workflows/test.yml)
+[![Tests](https://github.com/Hellotravisss/agentic-sentry/actions/workflows/test.yml/badge.svg)](https://github.com/Hellotravisss/agentic-sentry/actions/workflows/test.yml)
 
 **A lightweight macOS runtime safety guard for local AI coding agents — command-level monitoring, soft blocking, audit logs, and emergency network/process controls when you explicitly enable hard enforcement.**
 
 ## What it does
 
-Agentic Sandbox Sentry monitors commands executed in your Terminal in real time. In the default `soft-block` mode, it blocks or warns on dangerous behavior such as `rm -rf` outside allowed directories, accessing SSH keys, running `sudo`, or attempting network changes.
+Agentic Sentry monitors commands executed in your Terminal in real time. In the default `soft-block` mode, it blocks or warns on dangerous behavior such as `rm -rf` outside allowed directories, accessing SSH keys, running `sudo`, or attempting network changes.
 
 When configured for `hard` enforcement, or when self-protection monitors detect severe tampering, it can take physical action:
 
@@ -20,7 +20,7 @@ All detection and enforcement happens **locally with zero LLM involvement** in t
 
 When you allow AI agents (ChatGPT, Claude, Grok, Cursor, etc.) to run commands on your machine, you are giving them significant power. Even well-intentioned models can make catastrophic mistakes. Malicious prompts or compromised agents can cause irreversible damage.
 
-Agentic Sandbox Sentry acts as a **runtime safety layer and emergency brake**. It does not replace a true sandbox or VM, but it can add practical guardrails around local terminal-based AI workflows.
+Agentic Sentry acts as a **runtime safety layer and emergency brake**. It does not replace a true sandbox or VM, but it can add practical guardrails around local terminal-based AI workflows.
 
 ## Core Features
 
@@ -50,14 +50,14 @@ Agentic Sandbox Sentry acts as a **runtime safety layer and emergency brake**. I
 ### Homebrew (recommended)
 
 ```bash
-brew install hellotravisss/tap/agentic-sandbox-sentry
+brew install hellotravisss/tap/agentic-sentry
 ```
 
 This installs the `sentryctl` command and pulls in `fswatch` and `jq`. Then
 activate the shell monitor and agent integrations once:
 
 ```bash
-"$(brew --prefix agentic-sandbox-sentry)/libexec/install.sh"
+"$(brew --prefix agentic-sentry)/libexec/install.sh"
 ```
 
 ### From source
@@ -71,8 +71,8 @@ brew install fswatch jq
 #### One-command Install
 
 ```bash
-git clone https://github.com/Hellotravisss/agentic-sandbox-sentry.git
-cd agentic-sandbox-sentry
+git clone https://github.com/Hellotravisss/agentic-sentry.git
+cd agentic-sentry
 ./install.sh
 ```
 

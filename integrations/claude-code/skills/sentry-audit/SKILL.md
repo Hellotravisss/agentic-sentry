@@ -1,11 +1,11 @@
 ---
 name: sentry-audit
-description: Review and explain AI-agent activity recorded by Agentic Sandbox Sentry — blocked commands, permission denials, warnings, and suspicious patterns. Use when the user asks what the agent did or tried to do, why a Bash command was denied or prompted with a "Sentry" reason, to audit/review agent or shell activity, or to investigate Sentry logs, violations, or statistics.
+description: Review and explain AI-agent activity recorded by Agentic Sentry — blocked commands, permission denials, warnings, and suspicious patterns. Use when the user asks what the agent did or tried to do, why a Bash command was denied or prompted with a "Sentry" reason, to audit/review agent or shell activity, or to investigate Sentry logs, violations, or statistics.
 ---
 
 # Sentry Audit
 
-Agentic Sandbox Sentry is a runtime safety guard installed on this machine. It screens
+Agentic Sentry is a runtime safety guard installed on this machine. It screens
 shell commands (via zsh hooks) and Claude Code Bash tool calls (via a PreToolUse hook),
 logging every detection as structured JSON. This skill is for reading those records
 back to the user and explaining them.

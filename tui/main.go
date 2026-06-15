@@ -28,7 +28,7 @@ func main() {
 				}
 			}
 		case "-h", "--help":
-			fmt.Println("sentry-tui — Interactive TUI for Agentic Sandbox Sentry")
+			fmt.Println("sentry-tui — Interactive TUI for Agentic Sentry")
 			fmt.Println()
 			fmt.Println("Usage: sentry-tui [options]")
 			fmt.Println()

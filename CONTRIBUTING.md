@@ -1,4 +1,4 @@
-# Contributing to Agentic Sandbox Sentry
+# Contributing to Agentic Sentry
 
 Thank you for considering a contribution. This project is a security-sensitive tool that can block terminal commands, freeze processes, and isolate network access in hard enforcement mode. Please favor correctness, safety, and clear recovery behavior over feature speed.
 
@@ -7,8 +7,8 @@ Thank you for considering a contribution. This project is a security-sensitive t
 Clone the repository:
 
 ```bash
-git clone https://github.com/Hellotravisss/agentic-sandbox-sentry.git
-cd agentic-sandbox-sentry
+git clone https://github.com/Hellotravisss/agentic-sentry.git
+cd agentic-sentry
 ```
 
 Install useful development dependencies:
@@ -105,4 +105,4 @@ Please do not open a public issue for exploitable vulnerabilities or bypasses. F
 
 ## Project values
 
-Agentic Sandbox Sentry should help developers experiment with automated agents safely. Contributions should reduce risk, improve observability, or make recovery easier without surprising users.
+Agentic Sentry should help developers experiment with automated agents safely. Contributions should reduce risk, improve observability, or make recovery easier without surprising users.

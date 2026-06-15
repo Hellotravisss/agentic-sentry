@@ -1,6 +1,12 @@
 # Changelog
 
-All notable changes to Agentic Sandbox Sentry are documented here.
+All notable changes to Agentic Sentry are documented here.
+
+## Unreleased
+
+### Changed
+
+- Renamed the project from **Agentic Sandbox Sentry** to **Agentic Sentry**. "Sandbox" overstated what a shell-hook guard provides (it is a runtime guard and audit layer, not an isolation boundary). The `sentryctl` command, the `~/.agentsentry` home directory, and all internal component filenames are unchanged. The GitHub repo and Homebrew package are now `agentic-sentry` (old URLs redirect).
 
 ## v0.1.6 - 2026-06-14
 

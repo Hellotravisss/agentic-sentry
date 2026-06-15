@@ -1,5 +1,5 @@
 /**
- * sentry-guard - OpenClaw plugin bridging Agentic Sandbox Sentry
+ * sentry-guard - OpenClaw plugin bridging Agentic Sentry
  *
  * Registers a `before_tool_call` handler that screens exec/shell tool
  * calls with Sentry's detection engine (via `sentryctl check --json`)
@@ -23,7 +23,7 @@
 import { execFileSync } from "node:child_process";
 
 const SENTRY_REPO =
-  process.env.SENTRY_REPO ?? `${process.env.HOME}/agentic-sandbox-sentry`;
+  process.env.SENTRY_REPO ?? `${process.env.HOME}/agentic-sentry`;
 const SENTRYCTL = `${SENTRY_REPO}/sentryctl`;
 
 // Tool names whose params carry a host shell command.

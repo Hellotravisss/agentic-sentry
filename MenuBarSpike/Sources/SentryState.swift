@@ -78,7 +78,7 @@ final class SentryState: ObservableObject {
 
     private var projectRoot: String {
         // Resolve relative to the binary location, or fall back to known path
-        let known = "/Users/travis/Documents/Vibe_Coding/Agentic-Sandbox-Sentry"
+        let known = "/Users/travis/Documents/Vibe_Coding/Agentic-Sentry"
         return FileManager.default.fileExists(atPath: known) ? known : "."
     }
 

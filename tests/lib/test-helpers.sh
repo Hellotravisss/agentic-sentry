@@ -1,5 +1,5 @@
 #!/bin/bash
-# test-helpers.sh - Minimal test framework for Agentic Sandbox Sentry
+# test-helpers.sh - Minimal test framework for Agentic Sentry
 # Provides: assert_eq, assert_ok, assert_fail, assert_contains, assert_not_contains
 # Plus: test isolation (temp dirs, env backup/restore), colored output, TAP-like reporting
 

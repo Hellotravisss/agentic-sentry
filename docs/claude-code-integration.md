@@ -1,6 +1,6 @@
 # Claude Code Integration
 
-Agentic Sandbox Sentry can run inside Claude Code's official hook system, evaluating
+Agentic Sentry can run inside Claude Code's official hook system, evaluating
 every Bash command the agent attempts **before** it executes — using the same detection
 rules as the zsh hook, but at the tool layer where it cannot be bypassed by switching
 shells.
@@ -33,7 +33,7 @@ Every detection is written to the audit log with component `claude-hook`, so
 ## Install
 
 ```bash
-cd agentic-sandbox-sentry
+cd agentic-sentry
 ./integrations/claude-code/install-claude-hook.sh
 ```
 

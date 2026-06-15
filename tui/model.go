@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/agentic-sandbox-sentry/tui/tabs"
+	"github.com/agentic-sentry/tui/tabs"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

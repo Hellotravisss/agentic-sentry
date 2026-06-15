@@ -113,7 +113,7 @@ struct SentryPopover: View {
     private func toggleSentry() {
         let cmd = sentry.isRunning
             ? "kill $(pgrep -f sandbox-monitor) 2>/dev/null"
-            : "cd '/Users/travis/Documents/Vibe_Coding/Agentic-Sandbox-Sentry' && nohup ./sandbox-monitor.fswatch.sh > /tmp/sentry-monitor.log 2>&1 &"
+            : "cd '/Users/travis/Documents/Vibe_Coding/Agentic-Sentry' && nohup ./sandbox-monitor.fswatch.sh > /tmp/sentry-monitor.log 2>&1 &"
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
         process.arguments = ["-c", cmd]

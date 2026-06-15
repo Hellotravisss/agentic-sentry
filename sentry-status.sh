@@ -1,6 +1,6 @@
 #!/bin/bash
 # sentry-status.sh - Comprehensive health check and violation reporting
-# Shows the full operational status of the Agentic Sandbox Sentry system.
+# Shows the full operational status of the Agentic Sentry system.
 #
 # Usage:
 #   sentry-status.sh              # Full status report
@@ -198,7 +198,7 @@ generate_violation_report() {
 # --- Full status report ---
 
 generate_full_status() {
-    echo -e "${BLUE}${BOLD}=== Agentic Sandbox Sentry — Full Status ===${NC}"
+    echo -e "${BLUE}${BOLD}=== Agentic Sentry — Full Status ===${NC}"
     echo -e "Date: $(date)"
     echo -e "Host: $(hostname -s 2>/dev/null || hostname)"
     echo ""

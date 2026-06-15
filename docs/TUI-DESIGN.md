@@ -97,7 +97,7 @@ The home screen. Shows health at a glance. Auto-refreshes every 5 seconds.
 │  ◉ Status   ○ Violations   ○ Selfguard   ○ Logs   ○ Config     │
 │──────────────────────────────────────────────────────────────────│
 │                                                                  │
-│  ┌─ Agentic Sandbox Sentry ──────────────────────────────────┐  │
+│  ┌─ Agentic Sentry ──────────────────────────────────┐  │
 │  │                                                            │  │
 │  │  Mode:          soft-block              Health: 85/100     │  │
 │  │  Host:          Traviss-MacBook-Pro                       │  │
@@ -437,7 +437,7 @@ cd tui && go build -o sentry-tui .
 sentryctl tui    # wrapper that runs sentry-tui if binary exists
 
 # Homebrew
-brew install agentic-sandbox-sentry  # includes sentry-tui
+brew install agentic-sentry  # includes sentry-tui
 ```
 
 ### Launch

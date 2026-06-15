@@ -1,5 +1,5 @@
 #!/bin/bash
-# enforcement_recovery_module.sh - macOS native physical enforcement for Agentic Sandbox Sentry
+# enforcement_recovery_module.sh - macOS native physical enforcement for Agentic Sentry
 # Network cut (Wi-Fi + ifconfig + pf anchor) + real process suspension (kill -STOP)
 # Safe restore with mandatory one-time code + auto-resume of frozen processes
 # Modes: setup | enforce [reason] [pids_hint] | restore | status
@@ -438,7 +438,7 @@ unfreeze() {
 }
 
 status() {
-    echo "=== Agentic Sandbox Sentry Status ==="
+    echo "=== Agentic Sentry Status ==="
     echo "Enforcement log tail:"
     tail -5 "$ENFORCE_LOG" 2>/dev/null || echo "No enforcement yet"
     echo ""

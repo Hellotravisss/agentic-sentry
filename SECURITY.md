@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the threat model, trust boundaries, and known limitations of Agentic Sandbox Sentry, with special focus on its self-protection mechanisms (`sentry-selfguard.sh` and baseline integrity system).
+This document describes the threat model, trust boundaries, and known limitations of Agentic Sentry, with special focus on its self-protection mechanisms (`sentry-selfguard.sh` and baseline integrity system).
 
 The primary goal of the system is to protect a macOS host from rogue AI agents that have gained shell access via remote control of Terminal (zsh). It does so through real-time command interception and filesystem monitoring, followed by aggressive physical enforcement (network isolation + process suspension).
 

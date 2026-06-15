@@ -1,7 +1,7 @@
 # macOS Menu Bar Tool — Research & Recommendation
 
 ## Task
-Choose the best approach for a macOS menu bar companion app for Agentic Sandbox Sentry.
+Choose the best approach for a macOS menu bar companion app for Agentic Sentry.
 Options: SwiftUI, Swift + AppKit, or Go + Wails.
 
 ## Context

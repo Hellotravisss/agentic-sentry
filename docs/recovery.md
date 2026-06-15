@@ -1,6 +1,6 @@
 # Recovery Guide
 
-This guide explains how to inspect and recover from Agentic Sandbox Sentry enforcement events.
+This guide explains how to inspect and recover from Agentic Sentry enforcement events.
 
 Read this before enabling `hard` mode.
 

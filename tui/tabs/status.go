@@ -83,7 +83,7 @@ func (m StatusModel) View() string {
 		m.data.Host,
 	))
 
-	sections = append(sections, RenderBox("Agentic Sandbox Sentry", mainContent.String(), boxWidth))
+	sections = append(sections, RenderBox("Agentic Sentry", mainContent.String(), boxWidth))
 
 	// Components box
 	var compContent strings.Builder

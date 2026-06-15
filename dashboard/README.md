@@ -1,6 +1,6 @@
 # Sentry Web Dashboard
 
-Lightweight local web dashboard for Agentic Sandbox Sentry.
+Lightweight local web dashboard for Agentic Sentry.
 
 ## Stack
 

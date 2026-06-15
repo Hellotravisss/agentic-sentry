@@ -1,5 +1,5 @@
 """
-Agentic Sandbox Sentry — Web Dashboard
+Agentic Sentry — Web Dashboard
 Lightweight Flask + HTMX dashboard showing system status, violations, and selfguard health.
 
 Usage:
@@ -466,6 +466,6 @@ if __name__ == "__main__":
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
 
     display_host = "localhost" if host in {"127.0.0.1", "localhost"} else host
-    print(f"\n  Agentic Sandbox Sentry Dashboard")
+    print(f"\n  Agentic Sentry Dashboard")
     print(f"  http://{display_host}:{port}\n")
     app.run(host=host, port=port, debug=debug)

@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/agentic-sandbox-sentry/tui/tabs"
+	"github.com/agentic-sentry/tui/tabs"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

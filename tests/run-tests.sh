@@ -1,5 +1,5 @@
 #!/bin/bash
-# run-tests.sh - Main test runner for Agentic Sandbox Sentry
+# run-tests.sh - Main test runner for Agentic Sentry
 # Runs all test-*.sh files in the tests/ directory and reports aggregate results.
 #
 # Usage:
@@ -22,7 +22,7 @@ NC='\033[0m'
 
 echo ""
 echo -e "${BOLD}╔══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}║     Agentic Sandbox Sentry — Test Suite                 ║${NC}"
+echo -e "${BOLD}║     Agentic Sentry — Test Suite                 ║${NC}"
 echo -e "${BOLD}╚══════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  Project: ${BLUE}$PROJECT_DIR${NC}"

@@ -1,4 +1,4 @@
-# Lightweight auditd rules for Agentic Sandbox Sentry (macOS)
+# Lightweight auditd rules for Agentic Sentry (macOS)
 # Place in /etc/security/audit_control or use as reference for auditd
 # These rules watch for file deletion and permission changes on sensitive paths
 # Note: macOS auditd is basic; for production use fswatch instead

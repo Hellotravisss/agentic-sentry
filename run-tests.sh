@@ -1,5 +1,5 @@
 #!/bin/bash
-# run-tests.sh — Top-level CI-friendly test runner for Agentic Sandbox Sentry
+# run-tests.sh — Top-level CI-friendly test runner for Agentic Sentry
 #
 # Wraps tests/run-tests.sh with CI-aware output, timing, and exit codes.
 #
@@ -70,9 +70,9 @@ fi
 # ── Header ────────────────────────────────────────────────────────────────
 echo ""
 if [[ "$CI_MODE" == "true" ]]; then
-    echo "::group::Agentic Sandbox Sentry — Test Suite (CI mode)"
+    echo "::group::Agentic Sentry — Test Suite (CI mode)"
 else
-    echo -e "${BOLD}Agentic Sandbox Sentry — Test Suite${NC}"
+    echo -e "${BOLD}Agentic Sentry — Test Suite${NC}"
 fi
 echo "  Date:  $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 echo "  Bash:  ${BASH_VERSION:-unknown}"

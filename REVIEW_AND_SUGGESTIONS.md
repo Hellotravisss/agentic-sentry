@@ -1,4 +1,4 @@
-Agentic Sandbox Sentry Review Report
+Agentic Sentry Review Report
 =====================================
 
 Files Examined:

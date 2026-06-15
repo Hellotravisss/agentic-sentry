@@ -1,4 +1,4 @@
-# Agentic Sandbox Sentry Architecture
+# Agentic Sentry Architecture
 
 **Lightweight macOS-Native Real-Time Command Auditing & Physical Enforcement**
 

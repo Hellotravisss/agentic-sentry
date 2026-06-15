@@ -1,5 +1,5 @@
 #!/bin/bash
-# sentryctl - Unified command line interface for Agentic Sandbox Sentry (Route C)
+# sentryctl - Unified command line interface for Agentic Sentry (Route C)
 # This is the main user-facing tool.
 
 set -euo pipefail
@@ -76,7 +76,7 @@ cmd_dashboard() {
     load_sentry_config 2>/dev/null || true
     local current_mode="${SENTRY_MODE:-soft-block}"
 
-    _header "Agentic Sandbox Sentry" "$BLUE"
+    _header "Agentic Sentry" "$BLUE"
     echo -e "  ${BOLD}Mode:${NC}    ${YELLOW}${current_mode}${NC}"
 
     # Component status line
@@ -138,7 +138,7 @@ cmd_dashboard() {
 }
 
 usage() {
-    echo -e "${BOLD}Agentic Sandbox Sentry${NC} v${SENTRY_VERSION}"
+    echo -e "${BOLD}Agentic Sentry${NC} v${SENTRY_VERSION}"
     echo -e "${DIM}Runtime safety guard for local AI coding agents${NC}"
     echo ""
     echo -e "${BOLD}Usage:${NC} sentryctl ${DIM}<command>${NC} ${DIM}[options]${NC}"
@@ -197,7 +197,7 @@ usage() {
 }
 
 cmd_status() {
-    _header "Agentic Sandbox Sentry Status" "$BLUE"
+    _header "Agentic Sentry Status" "$BLUE"
     echo -e "  ${DIM}Date: $(date)${NC}"
     echo ""
 
@@ -1042,7 +1042,7 @@ cmd_rotate() {
 # === Version command ===
 cmd_version() {
     echo -e "${BOLD}sentryctl${NC} v${SENTRY_VERSION}"
-    echo -e "${DIM}Agentic Sandbox Sentry${NC}"
+    echo -e "${DIM}Agentic Sentry${NC}"
 }
 
 # Main command router

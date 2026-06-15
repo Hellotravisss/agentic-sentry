@@ -1,5 +1,5 @@
 #!/bin/bash
-# fswatch aggressive event-driven monitor for Agentic Sandbox Sentry
+# fswatch aggressive event-driven monitor for Agentic Sentry
 # Triggers physical enforcement immediately on dangerous file operations
 # Now also passes PID hints to enforcement for targeted process freezing (kill -STOP)
 # Robust path handling for spaces, macOS event flags, error handling
@@ -41,7 +41,7 @@ else
     SENSITIVE_PATHS=("$HOME/.ssh" "$HOME/.gnupg" "$HOME/Library/Keychains" "/etc" "/System" "/private/etc" "/private/var/db")
 fi
 
-echo "=== Agentic Sandbox Sentry (Aggressive fswatch Mode) ==="
+echo "=== Agentic Sentry (Aggressive fswatch Mode) ==="
 echo "Monitoring sensitive paths for dangerous file operations..."
 echo "Paths: ${SENSITIVE_PATHS[*]}"
 echo "Any rm/chmod/chown on these paths will trigger immediate network cut + process sleep."

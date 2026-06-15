@@ -1,6 +1,6 @@
 # SentryMenuBar — SwiftUI Menu Bar Spike
 
-A working prototype of a macOS menu bar companion for Agentic Sandbox Sentry.
+A working prototype of a macOS menu bar companion for Agentic Sentry.
 
 ## What it does
 

@@ -1,6 +1,6 @@
 # Operating Modes
 
-Agentic Sandbox Sentry is designed to be conservative by default. It separates detection from physical enforcement so users can choose the right safety level for their environment.
+Agentic Sentry is designed to be conservative by default. It separates detection from physical enforcement so users can choose the right safety level for their environment.
 
 ## Summary
 
