@@ -47,13 +47,28 @@ Agentic Sandbox Sentry acts as a **runtime safety layer and emergency brake**. I
 
 ## Installation
 
-### Prerequisites
+### Homebrew (recommended)
+
+```bash
+brew install hellotravisss/tap/agentic-sandbox-sentry
+```
+
+This installs the `sentryctl` command and pulls in `fswatch` and `jq`. Then
+activate the shell monitor and agent integrations once:
+
+```bash
+"$(brew --prefix agentic-sandbox-sentry)/libexec/install.sh"
+```
+
+### From source
+
+#### Prerequisites
 
 ```bash
 brew install fswatch jq
 ```
 
-### One-command Install
+#### One-command Install
 
 ```bash
 git clone https://github.com/Hellotravisss/agentic-sandbox-sentry.git
