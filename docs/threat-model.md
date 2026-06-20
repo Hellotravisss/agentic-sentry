@@ -44,7 +44,12 @@ python3 -c "import shutil; shutil.rmtree('/Users/me')"
 ```
 
 Coverage: `rm`/`rmdir` outside allowed project directories is blocked in `soft-block`
-and `hard` modes, including `exec`, `bash -c`, and language one-liner wrappers.
+and `hard` modes, including `exec`, `bash -c`, and language one-liner wrappers. Detection
+normalizes each command (stripping leading whitespace and env-var assignments) and
+evaluates every segment split on `; && || |`, so prefixes like `cd x && rm -rf /` or
+`FOO=1 rm -rf /` cannot slip past. Coverage also extends to other destructive primitives:
+`doas`, `find … -delete`/`-exec rm`, recursive `chmod`/`chown`, `dd of=/dev/…`, `shred`,
+`mkfs`, `diskutil erase*`, fork bombs, and writes to shell startup files.
 
 ### T2. Credential and sensitive-path access — Enforced
 

@@ -4,6 +4,14 @@ All notable changes to Agentic Sentry are documented here.
 
 ## Unreleased
 
+### Security
+
+- Fixed a systemic detection-bypass class found in a self-audit: every anchored rule (`rm`, `sudo`, network, `exec`, TTY wrappers) was defeated by any command prefix — `cd x && rm -rf /`, `echo hi; sudo …`, `FOO=1 networksetup …`, or a leading space — so the tool missed even its headline case (accidental `rm -rf` in a chained command). Detection now normalizes each command (strips leading whitespace, env-var assignments, and `env`/`command`/`builtin`) and evaluates every segment split on `; && || |`, so a prefix can no longer hide a dangerous command.
+- Broadened destructive-command coverage beyond `rm`/`rmdir`: `doas`, `find … -delete`/`-exec rm`, recursive `chmod`/`chown` outside allowed dirs, `dd of=/dev/…`, `shred`, `mkfs`, `diskutil erase*`, fork bombs (`:(){ :|:& };:`), and writes to shell startup files (`.zshrc` etc.).
+- Hardened sensitive-path detection against quote/glob obfuscation (`~/.s""sh/id_rsa`, `~/.ss*/id_rsa`) by de-quoting before matching and matching key filenames (`id_rsa`, `id_ed25519`, `authorized_keys`, `.netrc`, …) directly.
+- Extended remote-code-execution detection from literal `curl | sh` to all common forms: process substitution `bash <(curl …)` and command substitution `eval "$(curl …)"` / `` `curl …` ``.
+- Added `tests/test-bypass.sh` (36 cases): every fixed bypass is locked in as a regression test, paired with normal-command cases proving no new false positives.
+
 ### Changed
 
 - Renamed the project from **Agentic Sandbox Sentry** to **Agentic Sentry**. "Sandbox" overstated what a shell-hook guard provides (it is a runtime guard and audit layer, not an isolation boundary). The `sentryctl` command, the `~/.agentsentry` home directory, and all internal component filenames are unchanged. The GitHub repo and Homebrew package are now `agentic-sentry` (old URLs redirect).

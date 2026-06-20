@@ -112,70 +112,66 @@ is_path_in_allowed_project() {
     return 1   # outside all allowed projects → treat as dangerous
 }
 
-# Detect dangerous command using rules (improved target extraction for spaces/quotes)
+# Extract the most likely path operand from a command (last non-option token).
+_sentry_extract_target() {
+    echo "$1" | awk '{for(i=NF;i>1;i--) if ($i !~ /^-/) {print $i; break}}' | sed "s/['\"];*$//; s/;$//"
+}
+
+# Detect dangerous command using rules.
+#
+# Two layers, because a single anchored regex over the whole line is trivially
+# defeated by a prefix (`cd x && rm`, `FOO=1 sudo`, leading space) — see the
+# security audit. We therefore:
+#   1. Run CONTAINS checks over the whole (de-quoted) command — these match
+#      anywhere, so a prefix can't hide them (sensitive paths, curl|shell RCE,
+#      language one-liners, bash -c payloads, fork bombs, rc-file writes).
+#   2. Split the command into segments on ; && || | and newline, strip each
+#      segment's leading whitespace / env-assignments / env|command|builtin,
+#      then run the ANCHORED single-command checks (rm, sudo, network, disk,
+#      wrappers) on each segment.
 is_dangerous() {
     local cmd="$1"
     local cwd="$2"
+    local dequoted seg s target fpath
 
-    # rm -rf / rmdir outside projects (improved target extraction below)
-    if [[ "$cmd" =~ ^(rm|rmdir)[[:space:]]+-?r?f? ]]; then
-        local target
-        target=$(echo "$cmd" | awk '{for(i=NF;i>1;i--) if ($i !~ /^-/) {print $i; break}}' | sed "s/['\"];*$//; s/;$//")
-        # Block if no target could be extracted OR the target is outside all allowed projects
-        if [[ -z "$target" ]] || ! is_path_in_allowed_project "$target"; then
-            echo "BLOCKED: rm/rmdir outside allowed project dirs (or ambiguous target)"
-            return 0
-        fi
-    fi
+    # ===== Layer 1: whole-command CONTAINS checks (immune to prefixes) =====
 
-    # sudo any
-    if [[ "$cmd" =~ ^sudo[[:space:]] ]]; then
-        echo "BLOCKED: sudo command detected"
-        return 0
-    fi
-
-    # sensitive paths (ssh, keychain, etc.)
-    if [[ "$cmd" =~ \.(ssh|gnupg|aws|config/gcloud) ]] || [[ "$cmd" =~ (/etc/|/System/|/Library/Keychains) ]]; then
+    # Sensitive paths. De-quote first (strip " ' \ `) so split literals like
+    # ~/.s""sh or cat ~/.\ssh can't hide the match; also catch key filenames
+    # directly, which survive globbing (~/.ss*/id_rsa).
+    dequoted=$(printf '%s' "$cmd" | tr -d '\042\047\134\140')
+    if [[ "$dequoted" =~ \.(ssh|gnupg|aws|config/gcloud) ]] \
+       || [[ "$dequoted" =~ (/etc/|/System/|/Library/Keychains|/private/etc/) ]] \
+       || [[ "$cmd" =~ (id_rsa|id_ed25519|id_ecdsa|id_dsa|authorized_keys|known_hosts|\.netrc|secring\.gpg) ]]; then
         echo "BLOCKED: access to sensitive system/key path"
         return 0
     fi
 
-    # network config changes
-    if [[ "$cmd" =~ ^(networksetup|ifconfig|scutil|route|pfctl)[[:space:]] ]]; then
-        echo "BLOCKED: network/system config change"
-        return 0
-    fi
-
-    # curl | bash
-    # Note: requires a literal pipe between curl and the shell. The old
-    # pattern used \| which zsh ERE treats as alternation, flagging EVERY
-    # curl command (false positive) — see tests/test-hooks.sh.
-    if [[ "$cmd" == *curl*"|"* ]] && [[ "$cmd" =~ "[|][[:space:]]*([^ ]*/)?(ba|z)?sh" ]]; then
-        echo "BLOCKED: curl pipe to shell"
-        return 0
-    fi
-
-    # === Bypass / evasion detection (new) ===
-    # exec wrapper
-    if [[ "$cmd" =~ ^exec[[:space:]]+(rm|sudo|curl|python|perl|zsh|bash) ]]; then
-        echo "BLOCKED: exec wrapper around dangerous command"
-        return 0
-    fi
-
-    # (zsh|bash|sh) -c "..." containing dangerous payload
-    if [[ "$cmd" =~ (zsh|bash|sh)[[:space:]]+-c[[:space:]] ]]; then
-        local inner
-        inner=$(echo "$cmd" | sed -E 's/.*-c[[:space:]]+['\''"]?([^'\''"]+).*/\1/I')
-        # curl|shell handled as a separate glob check: with \| inside the
-        # alternation the regex degraded to .*(sh|bash), blocking any -c
-        # payload containing "sh" (e.g. bash -c "echo fish").
-        if [[ "$inner" =~ (rm[[:space:]]+-?r|sudo |networksetup|ifconfig.*down|pfctl) ]] || [[ "$inner" == *curl*"|"* ]]; then
-            echo "BLOCKED: dangerous command inside subshell (-c)"
+    # Remote code execution: curl/wget/fetch feeding a shell in ANY form —
+    # pipe, process substitution <(...), or command substitution $(...)/`...`.
+    if [[ "$cmd" =~ (curl|wget|fetch)[[:space:]] ]]; then
+        if { [[ "$cmd" == *"|"* ]] && [[ "$cmd" =~ "[|][[:space:]]*([^ ]*/)?(ba|z)?sh" ]]; } \
+           || [[ "$cmd" == *'<(curl'* ]] || [[ "$cmd" == *'<(wget'* ]] \
+           || [[ "$cmd" == *'$(curl'* ]] || [[ "$cmd" == *'$(wget'* ]] \
+           || [[ "$cmd" == *'`curl'* ]] || [[ "$cmd" == *'`wget'* ]]; then
+            echo "BLOCKED: curl/wget piped or substituted into a shell"
             return 0
         fi
     fi
 
-    # python/perl/ruby one-liners often used by agents
+    # Fork bomb (`:(){ :|:& };:` and variants) — the `:|:` core is distinctive.
+    if [[ "$cmd" == *':|:'* ]]; then
+        echo "BLOCKED: fork bomb pattern"
+        return 0
+    fi
+
+    # Writes to shell startup files (persistence / disabling the guard).
+    if [[ "$cmd" =~ (\>|\>\>|tee)[[:space:]]*([^[:space:]]*/)?(\.zshrc|\.zshenv|\.zprofile|\.bashrc|\.bash_profile|\.profile) ]]; then
+        echo "BLOCKED: write to shell startup file"
+        return 0
+    fi
+
+    # Language one-liners (python/perl/ruby -c/-e) with a destructive payload.
     if [[ "$cmd" =~ (python|python3|perl|ruby)[[:space:]]+-[ce][[:space:]] ]]; then
         if [[ "$cmd" =~ (rm[[:space:]]+-?r|sudo|os\.system|subprocess|exec\(|unlink|shutil\.rmtree) ]]; then
             echo "BLOCKED: dangerous operation inside language one-liner"
@@ -183,16 +179,85 @@ is_dangerous() {
         fi
     fi
 
-    # Common TTY/script wrappers used to hide or background commands
-    if [[ "$cmd" =~ ^(script|expect|unbuffer|stdbuf|nohup)[[:space:]] ]]; then
-        # Only block if they seem to wrap a dangerous command.
-        # The old pattern (rm -r|sudo |curl .*\|) failed to compile in zsh
-        # ("empty (sub)expression"), silently disabling this entire check.
-        if [[ "$cmd" =~ (rm[[:space:]]+-r|sudo[[:space:]]) ]] || [[ "$cmd" == *curl*"|"* ]]; then
-            echo "BLOCKED: TTY wrapper around dangerous command (evasion attempt)"
+    # bash/zsh/sh -c "..." carrying a dangerous payload.
+    if [[ "$cmd" =~ (zsh|bash|sh)[[:space:]]+-c[[:space:]] ]]; then
+        if [[ "$cmd" =~ (rm[[:space:]]+-?r|sudo[[:space:]]|doas[[:space:]]|networksetup|ifconfig.*down|pfctl) ]] || [[ "$cmd" == *curl*"|"* ]]; then
+            echo "BLOCKED: dangerous command inside subshell (-c)"
             return 0
         fi
     fi
+
+    # ===== Layer 2: per-segment ANCHORED checks (defeats prefix/chaining) =====
+    while IFS= read -r seg; do
+        [[ -z "$seg" ]] && continue
+        # Strip leading whitespace, env-var assignments, and env|command|builtin
+        # so `FOO=1 sudo`, `env X=1 cmd`, and ` rm` all reach the anchored rules.
+        s=$(printf '%s' "$seg" | sed -E 's/^[[:space:]]+//; s/^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)+//; s/^(env|command|builtin)[[:space:]]+//; s/^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)+//')
+
+        # rm / rmdir outside allowed project dirs
+        if [[ "$s" =~ ^(rm|rmdir)[[:space:]]+-?r?f? ]]; then
+            target=$(_sentry_extract_target "$s")
+            if [[ -z "$target" ]] || ! is_path_in_allowed_project "$target"; then
+                echo "BLOCKED: rm/rmdir outside allowed project dirs (or ambiguous target)"
+                return 0
+            fi
+        fi
+
+        # Privilege escalation
+        if [[ "$s" =~ ^(sudo|doas)[[:space:]] ]]; then
+            echo "BLOCKED: privilege escalation (sudo/doas) detected"
+            return 0
+        fi
+
+        # Network / system config change
+        if [[ "$s" =~ ^(networksetup|ifconfig|scutil|route|pfctl)[[:space:]] ]]; then
+            echo "BLOCKED: network/system config change"
+            return 0
+        fi
+
+        # exec wrapper around a dangerous command
+        if [[ "$s" =~ ^exec[[:space:]]+(rm|sudo|doas|curl|wget|python|perl|zsh|bash) ]]; then
+            echo "BLOCKED: exec wrapper around dangerous command"
+            return 0
+        fi
+
+        # TTY/background wrappers around a dangerous command
+        if [[ "$s" =~ ^(script|expect|unbuffer|stdbuf|nohup)[[:space:]] ]]; then
+            if [[ "$s" =~ (rm[[:space:]]+-r|sudo[[:space:]]|doas[[:space:]]) ]] || [[ "$s" == *curl*"|"* ]]; then
+                echo "BLOCKED: TTY/background wrapper around dangerous command"
+                return 0
+            fi
+        fi
+
+        # find-based mass delete/exec outside allowed dirs
+        if [[ "$s" =~ ^find[[:space:]] ]] && [[ "$s" =~ (-delete|-exec(dir)?[[:space:]]+(rm|unlink|rmdir|shred)) ]]; then
+            fpath=$(printf '%s' "$s" | awk '{for(i=2;i<=NF;i++) if ($i !~ /^-/) {print $i; break}}')
+            if [[ -z "$fpath" ]] || ! is_path_in_allowed_project "$fpath"; then
+                echo "BLOCKED: find-based mass delete/exec outside allowed dirs"
+                return 0
+            fi
+        fi
+
+        # Recursive permission change outside allowed dirs
+        if [[ "$s" =~ ^(chmod|chown)[[:space:]] ]] && [[ "$s" =~ (-R|-r|--recursive)([[:space:]]|$) ]]; then
+            target=$(_sentry_extract_target "$s")
+            if [[ -z "$target" ]] || ! is_path_in_allowed_project "$target"; then
+                echo "BLOCKED: recursive permission change outside allowed dirs"
+                return 0
+            fi
+        fi
+
+        # Raw disk / filesystem destruction
+        if [[ "$s" =~ ^dd[[:space:]] ]] && [[ "$s" == *of=/dev/* ]]; then
+            echo "BLOCKED: dd writing to a device"
+            return 0
+        fi
+        if [[ "$s" =~ ^(shred|mkfs)([[:space:]]|$) ]] || [[ "$s" =~ ^diskutil[[:space:]]+(erase|reformat|partition|secureErase|eraseDisk|eraseVolume) ]]; then
+            echo "BLOCKED: destructive disk operation"
+            return 0
+        fi
+
+    done < <(printf '%s\n' "$cmd" | awk '{gsub(/\|\||&&|[;|]|\n/,"\n"); print}')
 
     return 1
 }
