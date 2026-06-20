@@ -2,7 +2,7 @@
 
 All notable changes to Agentic Sentry are documented here.
 
-## Unreleased
+## v0.1.7 - 2026-06-19
 
 ### Security
 
@@ -10,7 +10,8 @@ All notable changes to Agentic Sentry are documented here.
 - Broadened destructive-command coverage beyond `rm`/`rmdir`: `doas`, `find … -delete`/`-exec rm`, recursive `chmod`/`chown` outside allowed dirs, `dd of=/dev/…`, `shred`, `mkfs`, `diskutil erase*`, fork bombs (`:(){ :|:& };:`), and writes to shell startup files (`.zshrc` etc.).
 - Hardened sensitive-path detection against quote/glob obfuscation (`~/.s""sh/id_rsa`, `~/.ss*/id_rsa`) by de-quoting before matching and matching key filenames (`id_rsa`, `id_ed25519`, `authorized_keys`, `.netrc`, …) directly.
 - Extended remote-code-execution detection from literal `curl | sh` to all common forms: process substitution `bash <(curl …)` and command substitution `eval "$(curl …)"` / `` `curl …` ``.
-- Added `tests/test-bypass.sh` (36 cases): every fixed bypass is locked in as a regression test, paired with normal-command cases proving no new false positives.
+- Fixed second-order bypasses found in a follow-up audit: `bash -c '<payload>'` now recurses through every rule (was a hardcoded keyword list, so `bash -c 'find / -delete'` slipped); leading shell grouping/escape chars `(`, `{`, `\` are stripped (`(sudo …)`, `\rm` no longer bypass); and the path allowlist now requires a directory-boundary match instead of a raw string prefix, so `/…/Projects-evil` is no longer treated as inside the allowed `/…/Projects`.
+- Added `tests/test-bypass.sh` (48 cases): every fixed bypass is locked in as a regression test, paired with normal-command cases proving no new false positives.
 
 ### Changed
 
