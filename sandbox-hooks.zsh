@@ -104,7 +104,10 @@ is_path_in_allowed_project() {
     while IFS= read -r allowed || [[ -n "$allowed" ]]; do
         [[ -z "$allowed" ]] && continue
         real_allowed=$(realpath "$allowed" 2>/dev/null || echo "$allowed")
-        if [[ "$real_target" == "$real_allowed"* ]]; then
+        # Require a path-boundary match, NOT a raw string prefix: the allowed
+        # dir itself, or something strictly beneath it (followed by '/').
+        # A bare prefix would treat '/…/Projects-evil' as inside '/…/Projects'.
+        if [[ "$real_target" == "$real_allowed" || "$real_target" == "$real_allowed"/* ]]; then
             return 0   # safe
         fi
     done < <(get_allowed_dirs)
@@ -132,7 +135,8 @@ _sentry_extract_target() {
 is_dangerous() {
     local cmd="$1"
     local cwd="$2"
-    local dequoted seg s target fpath
+    local depth="${3:-0}"   # recursion guard for nested -c payloads
+    local dequoted seg s target fpath inner _r
 
     # ===== Layer 1: whole-command CONTAINS checks (immune to prefixes) =====
 
@@ -179,11 +183,16 @@ is_dangerous() {
         fi
     fi
 
-    # bash/zsh/sh -c "..." carrying a dangerous payload.
-    if [[ "$cmd" =~ (zsh|bash|sh)[[:space:]]+-c[[:space:]] ]]; then
-        if [[ "$cmd" =~ (rm[[:space:]]+-?r|sudo[[:space:]]|doas[[:space:]]|networksetup|ifconfig.*down|pfctl) ]] || [[ "$cmd" == *curl*"|"* ]]; then
-            echo "BLOCKED: dangerous command inside subshell (-c)"
-            return 0
+    # bash/zsh/sh -c "..." — recurse into the payload so EVERY rule applies to
+    # the inner command, not just a hardcoded keyword list (else `bash -c
+    # 'find / -delete'` slips through). Depth-guarded against nested -c.
+    if [[ "$cmd" =~ (zsh|bash|sh)[[:space:]]+-c[[:space:]] ]] && (( depth < 4 )); then
+        inner=$(printf '%s' "$cmd" | sed -E "s/.*-c[[:space:]]+['\"]?([^'\"]*).*/\1/")
+        if [[ -n "$inner" && "$inner" != "$cmd" ]]; then
+            if _r=$(is_dangerous "$inner" "$cwd" $((depth + 1))); then
+                echo "BLOCKED: dangerous command inside subshell (-c) — ${_r#BLOCKED: }"
+                return 0
+            fi
         fi
     fi
 
@@ -192,7 +201,9 @@ is_dangerous() {
         [[ -z "$seg" ]] && continue
         # Strip leading whitespace, env-var assignments, and env|command|builtin
         # so `FOO=1 sudo`, `env X=1 cmd`, and ` rm` all reach the anchored rules.
-        s=$(printf '%s' "$seg" | sed -E 's/^[[:space:]]+//; s/^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)+//; s/^(env|command|builtin)[[:space:]]+//; s/^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)+//')
+        # Also strip leading shell grouping/escape chars ( { \ so `(sudo …)`,
+        # `{ sudo …; }`, and `\rm` reach the anchored rules.
+        s=$(printf '%s' "$seg" | sed -E 's/^[[:space:]({\\]+//; s/^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)+//; s/^(env|command|builtin)[[:space:]]+//; s/^[[:space:]({\\]+//; s/^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)+//')
 
         # rm / rmdir outside allowed project dirs
         if [[ "$s" =~ ^(rm|rmdir)[[:space:]]+-?r?f? ]]; then
