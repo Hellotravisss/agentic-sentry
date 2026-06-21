@@ -2,7 +2,7 @@
 
 All notable changes to Agentic Sentry are documented here.
 
-## Unreleased
+## v0.1.8 - 2026-06-20
 
 ### Security
 

@@ -25,7 +25,7 @@ DIM='\033[2m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-SENTRY_VERSION="0.1.7"
+SENTRY_VERSION="0.1.8"
 
 # --- Visual helpers for consistent formatting ---
 
