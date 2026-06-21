@@ -174,10 +174,51 @@ is_dangerous() {
     # ~/.s""sh or cat ~/.\ssh can't hide the match; also catch key filenames
     # directly, which survive globbing (~/.ss*/id_rsa).
     dequoted=$(printf '%s' "$cmd" | tr -d '\042\047\134\140')
-    if [[ "$dequoted" =~ \.(ssh|gnupg|aws|config/gcloud) ]] \
+    if [[ "$dequoted" =~ \.(ssh|gnupg|aws|kube|docker|config/gcloud|config/gh|config/hub) ]] \
        || [[ "$dequoted" =~ (/etc/|/System/|/Library/Keychains|/private/etc/) ]] \
-       || [[ "$cmd" =~ (id_rsa|id_ed25519|id_ecdsa|id_dsa|authorized_keys|known_hosts|\.netrc|secring\.gpg) ]]; then
+       || [[ "$cmd" =~ (id_rsa|id_ed25519|id_ecdsa|id_dsa|authorized_keys|known_hosts|\.netrc|secring\.gpg|\.npmrc|\.pypirc|\.git-credentials) ]] \
+       || [[ "$dequoted" =~ (^|[[:space:]=/])\.env([[:space:]]|$|/) ]] \
+       || [[ "$dequoted" =~ \.env\.(local|production|prod|development|dev|staging|stage|secret|live) ]]; then
+        # Bare .env and secret-bearing .env.<env> only — .env.example/.sample
+        # /.template templates pass through.
         echo "BLOCKED: access to sensitive system/key path"
+        return 0
+    fi
+
+    # macOS Keychain credential extraction (path-independent: /usr/bin/security too)
+    if [[ "$cmd" =~ security[[:space:]]+(dump-keychain|find-generic-password|find-internet-password|export[[:space:]]) ]]; then
+        echo "BLOCKED: macOS Keychain credential access"
+        return 0
+    fi
+
+    # Reverse shells: /dev/tcp|/dev/udp redirects, or netcat with an exec flag.
+    if [[ "$cmd" == */dev/tcp/* ]] || [[ "$cmd" == */dev/udp/* ]] \
+       || { [[ "$cmd" =~ (^|[^[:alnum:]])(nc|ncat|netcat)[[:space:]] ]] \
+            && [[ "$cmd" =~ [[:space:]]-[ce]([[:space:]]|$) ]]; }; then
+        echo "BLOCKED: reverse shell / netcat exec pattern"
+        return 0
+    fi
+
+    # setuid/setgid escalation: chmod with +s or a 4-digit octal starting 4/2/6.
+    if [[ "$cmd" =~ chmod[[:space:]] ]] \
+       && [[ "$cmd" =~ ([ug]\+s|[+=]s([[:space:]]|$)|[4267][0-7][0-7][0-7]([[:space:]]|$)) ]]; then
+        echo "BLOCKED: setuid/setgid permission change"
+        return 0
+    fi
+
+    # Persistence: launchd (load/bootstrap), crontab editing, or writes into
+    # Library/Launch{Agents,Daemons}.
+    if [[ "$cmd" =~ launchctl[[:space:]]+(load|bootstrap|enable|submit) ]] \
+       || { [[ "$cmd" =~ (^|[^[:alnum:]])crontab([[:space:]]|$) ]] && [[ ! "$cmd" =~ crontab[[:space:]]+-l([[:space:]]|$) ]]; } \
+       || [[ "$cmd" =~ (\>|tee|cp[[:space:]]|mv[[:space:]]|install[[:space:]]).*Library/Launch(Agents|Daemons) ]]; then
+        echo "BLOCKED: persistence mechanism (launchd/cron)"
+        return 0
+    fi
+
+    # Self-protection: writes to Sentry's own config/rules would neuter the guard.
+    if [[ "$cmd" =~ (\>|tee|cp[[:space:]]|mv[[:space:]]|rm[[:space:]]|truncate|sed[[:space:]].*-i) ]] \
+       && [[ "$cmd" =~ (\.agentsentry/|safety-rules\.json|sentry-config\.json) ]]; then
+        echo "BLOCKED: tampering with Sentry's own configuration"
         return 0
     fi
 
@@ -277,10 +318,14 @@ is_dangerous() {
             fi
         fi
 
-        # Recursive permission change outside allowed dirs
+        # Recursive permission change on an ABSOLUTE path outside allowed dirs.
+        # Relative targets (e.g. `chmod -R u+rw build`) resolve inside the work
+        # tree and are left alone — only `/`, `~`, `$HOME`-rooted targets are
+        # checked, which is where recursive chmod is actually dangerous.
         if [[ "$s" =~ ^(chmod|chown)[[:space:]] ]] && [[ "$s" =~ (-R|-r|--recursive)([[:space:]]|$) ]]; then
             target=$(_sentry_extract_target "$s")
-            if [[ -z "$target" ]] || ! is_path_in_allowed_project "$target"; then
+            if [[ "$target" == /* || "$target" == \~* || "$target" == \$HOME* ]] \
+               && ! is_path_in_allowed_project "$target"; then
                 echo "BLOCKED: recursive permission change outside allowed dirs"
                 return 0
             fi
