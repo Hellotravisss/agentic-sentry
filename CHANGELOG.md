@@ -2,6 +2,12 @@
 
 All notable changes to Agentic Sentry are documented here.
 
+## Unreleased
+
+### Security
+
+- Fixed a third class of detection bypass (round-3 audit): command-name rules were defeated by invoking the binary via a path (`/bin/rm`, `/usr/bin/sudo`, `./rm`), by wrapper words / multiplexers (`time sudo …`, `nice -n 10 rm …`, `busybox rm …`), and by the single-`&` background separator (`foo & sudo …`). Segment normalization now strips a leading directory path on the command word and known wrapper words (`time`, `nice`, `nohup`, `ionice`, `timeout`, `stdbuf`, `busybox`, `env`, `command`, `builtin`) with their options, and segmentation now also splits on `&`. Normalization runs as a single `sed` branch-loop to a fixed point, so stacked tricks (`/usr/bin/env FOO=1 nice -n5 rm …`) all collapse to the real command. `tests/test-bypass.sh` grows to 66 cases.
+
 ## v0.1.7 - 2026-06-19
 
 ### Security

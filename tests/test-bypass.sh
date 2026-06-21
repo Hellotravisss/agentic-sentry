@@ -104,7 +104,31 @@ if path_allowed "$_T_ISOLATION_DIR/Projects"; then _pass; else _fail "dir itself
 _T_CURRENT_TEST="shared-prefix sibling dir is rejected"
 if path_allowed "$_T_ISOLATION_DIR/Projects-evil"; then _fail "Projects-evil must NOT count as inside Projects"; else _pass; fi
 
+test_suite_begin "bypass — V8 binary invoked by path defeats name anchoring"
+must_block '/bin/rm -rf /etc'
+must_block '/usr/bin/sudo rm -rf /etc'
+must_block './rm -rf /etc'
+must_block '/usr/bin/env FOO=1 rm -rf /etc'
+
+test_suite_begin "bypass — V9 command prefixes / multiplexers"
+must_block 'time sudo rm -rf /etc'
+must_block 'nice sudo rm -rf /etc'
+must_block 'nice -n 10 rm -rf /etc'
+must_block 'busybox rm -rf /etc'
+must_block 'nohup find / -delete'
+
+test_suite_begin "bypass — V10 single-& background separator"
+must_block 'x & sudo rm -rf /etc'
+must_block 'foo & rm -rf /etc'
+must_block 'true & networksetup -setairportpower en0 off'
+
 test_suite_begin "bypass — no false positives on normal commands"
+must_allow '/usr/bin/git status'
+must_allow 'time make build'
+must_allow 'nice -n 10 npm run build'
+must_allow 'echo hi & echo bye'
+must_allow 'busybox ls'
+must_allow '/bin/ls -la'
 must_allow 'git status'
 must_allow 'cd /tmp && ls -la'
 must_allow 'echo hi; echo bye'

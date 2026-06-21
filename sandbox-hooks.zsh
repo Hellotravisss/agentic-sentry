@@ -120,6 +120,36 @@ _sentry_extract_target() {
     echo "$1" | awk '{for(i=NF;i>1;i--) if ($i !~ /^-/) {print $i; break}}' | sed "s/['\"];*$//; s/;$//"
 }
 
+# Normalize a single command segment down to its real command word, so the
+# anchored rules see `rm`/`sudo`/etc. regardless of how it was dressed up:
+#   - leading whitespace, grouping/escape chars ( { \
+#   - env-var assignments (FOO=1) and env|command|builtin
+#   - a directory path on the command itself (/bin/rm, ./rm, /usr/bin/sudo)
+#   - command multiplexers/prefixes that delegate to the next word
+#     (time, nice, nohup, ionice, timeout, stdbuf, busybox) and their options
+# Iterates to a fixed point so combinations (`/usr/bin/env FOO=1 nice -n5 rm`)
+# all collapse to `rm …`.
+_sentry_norm() {
+    # One sed pass with a branch loop (fast: a single subprocess per segment).
+    # Each rule, when it fires, branches back to :top so combinations collapse.
+    # The option/number strip only matches a segment that already STARTS with
+    # an option or number — which only happens after a wrapper word is removed,
+    # so it never eats a real command's first token.
+    printf '%s' "$1" | sed -E '
+:top
+s/^[[:space:]({\\]+//
+t top
+s/^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+//
+t top
+s|^[^[:space:]]+/||
+t top
+s/^(env|command|builtin|time|nice|nohup|ionice|timeout|stdbuf|busybox)[[:space:]]+//
+t top
+s/^(-[^[:space:]]*|[0-9]+[smhdkMG]?)[[:space:]]+//
+t top
+'
+}
+
 # Detect dangerous command using rules.
 #
 # Two layers, because a single anchored regex over the whole line is trivially
@@ -199,11 +229,9 @@ is_dangerous() {
     # ===== Layer 2: per-segment ANCHORED checks (defeats prefix/chaining) =====
     while IFS= read -r seg; do
         [[ -z "$seg" ]] && continue
-        # Strip leading whitespace, env-var assignments, and env|command|builtin
-        # so `FOO=1 sudo`, `env X=1 cmd`, and ` rm` all reach the anchored rules.
-        # Also strip leading shell grouping/escape chars ( { \ so `(sudo …)`,
-        # `{ sudo …; }`, and `\rm` reach the anchored rules.
-        s=$(printf '%s' "$seg" | sed -E 's/^[[:space:]({\\]+//; s/^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)+//; s/^(env|command|builtin)[[:space:]]+//; s/^[[:space:]({\\]+//; s/^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)+//')
+        # Collapse the segment to its real command word (strips paths,
+        # env-assignments, grouping chars, and wrapper words — see _sentry_norm).
+        s=$(_sentry_norm "$seg")
 
         # rm / rmdir outside allowed project dirs
         if [[ "$s" =~ ^(rm|rmdir)[[:space:]]+-?r?f? ]]; then
@@ -268,7 +296,7 @@ is_dangerous() {
             return 0
         fi
 
-    done < <(printf '%s\n' "$cmd" | awk '{gsub(/\|\||&&|[;|]|\n/,"\n"); print}')
+    done < <(printf '%s\n' "$cmd" | awk '{gsub(/\|\||&&|[;|&]|\n/,"\n"); print}')
 
     return 1
 }
