@@ -4,6 +4,10 @@
 
 **A lightweight macOS runtime safety guard for local AI coding agents — command-level monitoring, soft blocking, audit logs, and emergency network/process controls when you explicitly enable hard enforcement.**
 
+![Agentic Sentry egress allowlist demo](demo/sanctioned-ai-demo.gif)
+
+> *Egress allowlist in action: let agents do real work, block code/secret exfiltration, and keep an audit trail for security. Run it yourself in 2 minutes — `./demo/sanctioned-ai-demo.sh` (nothing is executed, it only evaluates).*
+
 ## What it does
 
 Agentic Sentry monitors commands executed in your Terminal in real time. In the default `soft-block` mode, it blocks or warns on dangerous behavior such as `rm -rf` outside allowed directories, accessing SSH keys, running `sudo`, or attempting network changes.
