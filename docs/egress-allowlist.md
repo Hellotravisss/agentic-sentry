@@ -8,6 +8,10 @@ The egress allowlist answers that directly. When enabled, any command an agent
 runs that reaches the network may only contact hosts you have allowlisted —
 everything else is blocked (or logged, depending on mode).
 
+> **See it in 2 minutes:** `./demo/sanctioned-ai-demo.sh` runs the whole story
+> (risk → enable → normal work flows → exfiltration blocked → audit log) safely,
+> against a throwaway config. Great for showing a manager or IT.
+
 ## Why this is the "sanctioned AI" wedge
 
 It flips the conversation from *"ban the agent"* to *"allow the agent, but box
