@@ -168,6 +168,7 @@ usage() {
     echo -e "                   ${DIM}audit | warn | dry-run | soft-block | hard${NC}"
     echo -e "  ${CYAN}config${NC}           Show full effective configuration"
     echo -e "  ${CYAN}allow-dir${NC} ${DIM}<path>${NC}  Add a directory to allowed project dirs"
+    echo -e "  ${CYAN}allow-host${NC} ${DIM}<host>${NC} Add a host to the egress allowlist ${DIM}(agent may only reach these)${NC}"
     echo -e "  ${CYAN}notifications${NC}    ${DIM}[on|off]${NC}  Enable/disable macOS notifications"
     echo ""
 
@@ -412,6 +413,37 @@ cmd_config() {
 
     echo ""
     echo -e "  ${BOLD}Config file:${NC} ${DIM}${SENTRY_CONFIG:-$SENTRY_HOME/sentry-config.json}${NC}"
+}
+
+# Add a host to the egress allowlist (turns on / extends egress enforcement).
+cmd_allow_host() {
+    local host="$1"
+
+    if [[ -z "$host" ]]; then
+        echo -e "${BOLD}Usage:${NC} sentryctl allow-host ${DIM}<domain-or-host>${NC}"
+        echo -e "${DIM}Example: sentryctl allow-host anthropic.com${NC}"
+        echo -e "${DIM}While the egress allowlist is non-empty, agent commands that reach the${NC}"
+        echo -e "${DIM}network may only contact allowlisted hosts (localhost is always allowed).${NC}"
+        return 1
+    fi
+
+    # Normalize: strip scheme and path if a URL was pasted.
+    host=$(printf '%s' "$host" | sed -E 's#^[a-z]+://##; s#/.*$##; s/:[0-9]+$//' | tr 'A-Z' 'a-z')
+
+    local rules_file="${SAFETY_RULES:-$SENTRY_HOME/safety-rules.json}"
+    if [[ ! -f "$rules_file" ]]; then _error "Safety rules file not found: $rules_file"; return 1; fi
+    if ! command -v jq >/dev/null 2>&1; then _error "jq is required (brew install jq)"; return 1; fi
+
+    local tmp; tmp=$(mktemp)
+    if jq --arg h "$host" '.egress_allowlist = ((.egress_allowlist // []) + [$h] | unique)' "$rules_file" > "$tmp"; then
+        mv "$tmp" "$rules_file"
+        _success "Added to egress allowlist: ${CYAN}$host${NC}"
+        _hint "Egress enforcement is now active. Allowed hosts:"
+        jq -r '.egress_allowlist[]?' "$rules_file" 2>/dev/null | sed 's/^/    /'
+        _hint "Reload your shell for the change to take effect."
+    else
+        rm -f "$tmp"; _error "Failed to update rules file."; return 1
+    fi
 }
 
 cmd_allow_dir() {
@@ -1085,6 +1117,10 @@ case "${1:-dashboard}" in
     allow-dir|allow_dir)
         shift
         cmd_allow_dir "$@"
+        ;;
+    allow-host|allow_host)
+        shift
+        cmd_allow_host "$@"
         ;;
     test)
         shift

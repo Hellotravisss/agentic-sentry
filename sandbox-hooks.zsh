@@ -120,6 +120,50 @@ _sentry_extract_target() {
     echo "$1" | awk '{for(i=NF;i>1;i--) if ($i !~ /^-/) {print $i; break}}' | sed "s/['\"];*$//; s/;$//"
 }
 
+# --- Egress allowlist (opt-in) -------------------------------------------------
+# When .egress_allowlist is populated in safety-rules.json, agent commands that
+# reach the network may only talk to allowlisted hosts. Empty/absent = disabled
+# (backward compatible; no effect for users who don't configure it).
+
+get_egress_allowlist() {
+    if command -v jq >/dev/null 2>&1 && [[ -f "$SAFETY_RULES" ]]; then
+        jq -r '.egress_allowlist[]?' "$SAFETY_RULES" 2>/dev/null
+    fi
+}
+
+# Print candidate destination hosts from a network command, one per line, lower-cased.
+# Each sub-pipeline ends with `|| true`: under the inherited `set -e`/pipefail a
+# no-match grep (exit 1) would otherwise abort the whole group, dropping the
+# later patterns (this silently disabled scp/nc host extraction once).
+_sentry_egress_hosts() {
+    local c="$1"
+    {
+        # scheme://[user@]host[:port]/...
+        printf '%s\n' "$c" | grep -oE '://[^/[:space:]]+' | sed -E 's#://##; s/.*@//; s/:[0-9]+$//' || true
+        # user@host: (scp / rsync / ssh)
+        printf '%s\n' "$c" | grep -oE '[A-Za-z0-9._-]+@[A-Za-z0-9.:_-]+:' | sed -E 's/.*@//; s/:.*$//' || true
+        # host:path without user@ (scp / rsync) — host must look like a domain or IP
+        printf '%s\n' "$c" | grep -oE '(^|[[:space:]])([A-Za-z0-9_-]+\.)+[A-Za-z0-9_-]+:' | sed -E 's/[[:space:]]//g; s/:$//' || true
+        # bare `tool host [port]` for nc/telnet/ssh (first non-option token)
+        printf '%s\n' "$c" | grep -oE '(^|[^[:alnum:]])(nc|ncat|netcat|telnet|ssh)[[:space:]]+[^-][^[:space:]]*' \
+            | sed -E 's/.*(nc|ncat|netcat|telnet|ssh)[[:space:]]+//' | grep -vE '@|://' || true
+    } 2>/dev/null | tr 'A-Z' 'a-z' | sed '/^$/d' | sort -u
+}
+
+# Is a host permitted by the egress allowlist? localhost is always allowed.
+_sentry_host_allowed() {
+    local host="$1" entry
+    case "$host" in
+        localhost|127.0.0.1|::1|0.0.0.0|0|"") return 0 ;;
+    esac
+    while IFS= read -r entry; do
+        [[ -z "$entry" ]] && continue
+        # exact host, or a subdomain of an allowlisted domain (api.anthropic.com ⊂ anthropic.com)
+        [[ "$host" == "$entry" || "$host" == *."$entry" ]] && return 0
+    done < <(get_egress_allowlist)
+    return 1
+}
+
 # Normalize a single command segment down to its real command word, so the
 # anchored rules see `rm`/`sudo`/etc. regardless of how it was dressed up:
 #   - leading whitespace, grouping/escape chars ( { \
@@ -166,7 +210,7 @@ is_dangerous() {
     local cmd="$1"
     local cwd="$2"
     local depth="${3:-0}"   # recursion guard for nested -c payloads
-    local dequoted seg s target fpath inner _r
+    local dequoted seg s target fpath inner _r _allow _h
 
     # ===== Layer 1: whole-command CONTAINS checks (immune to prefixes) =====
 
@@ -220,6 +264,23 @@ is_dangerous() {
        && [[ "$cmd" =~ (\.agentsentry/|safety-rules\.json|sentry-config\.json) ]]; then
         echo "BLOCKED: tampering with Sentry's own configuration"
         return 0
+    fi
+
+    # Egress allowlist (opt-in): when configured, a command that reaches the
+    # network may only contact allowlisted hosts. The network-tool gate keeps
+    # this free for the ~99% of commands that never touch the network (no jq
+    # spawned unless a network tool is actually present).
+    if [[ "$cmd" =~ (^|[^[:alnum:]])(curl|wget|fetch|scp|sftp|rsync|ssh|nc|ncat|netcat|telnet|ftp)([[:space:]]|$) ]]; then
+        _allow=$(get_egress_allowlist)
+        if [[ -n "$_allow" ]]; then
+            while IFS= read -r _h; do
+                [[ -z "$_h" ]] && continue
+                if ! _sentry_host_allowed "$_h"; then
+                    echo "BLOCKED: network egress to non-allowlisted host ($_h)"
+                    return 0
+                fi
+            done < <(_sentry_egress_hosts "$cmd")
+        fi
     fi
 
     # Remote code execution: curl/wget/fetch feeding a shell in ANY form —

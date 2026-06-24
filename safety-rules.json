@@ -22,5 +22,6 @@
     "ifconfig",
     "pfctl",
     "curl .*\\|.*(bash|sh|zsh)"
-  ]
+  ],
+  "egress_allowlist": []
 }

@@ -2,6 +2,12 @@
 
 All notable changes to Agentic Sentry are documented here.
 
+## Unreleased
+
+### Added
+
+- Added an opt-in **egress allowlist**: when `egress_allowlist` is populated in `safety-rules.json` (e.g. via `sentryctl allow-host anthropic.com`), agent commands that reach the network (`curl`, `wget`, `scp`, `sftp`, `rsync`, `ssh`, `nc`, …) may only contact allowlisted hosts — everything else is blocked/logged per the active mode. `localhost` is always allowed; subdomains of an allowlisted domain match (`api.anthropic.com` ⊂ `anthropic.com`). Off by default (empty allowlist = no enforcement), so existing users are unaffected. This is the first building block of "sanctioned agentic AI" for teams: it directly answers *"can our code be exfiltrated?"* by restricting where an agent may send data. Command-layer control (not a kernel packet filter); a network-extension enforcement layer is future work. New `sentryctl allow-host <host>` command; `tests/test-egress.sh` (15 cases).
+
 ## v0.1.8 - 2026-06-20
 
 ### Security

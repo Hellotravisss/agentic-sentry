@@ -110,6 +110,7 @@ sentryctl selfguard status
 
 ## Documentation
 
+- [Egress allowlist](docs/egress-allowlist.md) — restrict which hosts an agent can send data to (the "sanctioned AI" control for teams).
 - [Agent integrations](docs/integrations.md) — status matrix and adapters for Claude Code, Codex CLI, OpenClaw, and Hermes Agent; how to write your own.
 - [Claude Code integration](docs/claude-code-integration.md) — run Sentry as a PreToolUse hook that screens every agent Bash command.
 - [Operating modes](docs/modes.md) — explains `audit`, `warn`, `soft-block`, and `hard` behavior.
